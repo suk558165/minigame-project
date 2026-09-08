@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5347369, y: 1.5347369, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3330060592102019302}
@@ -207,7 +207,7 @@ MonoBehaviour:
   moveSpeed: 1.8
   damage: 8
   detectionRange: 7
-  attackRange: 1.14
+  attackRange: 1.7496
   attackCooldown: 1.1
   spawnDelay: 2.5
   groundLayer:
