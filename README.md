@@ -8,7 +8,7 @@ Unity 6 기반 2D 횡스크롤 로그라이크 액션 게임.
 ## 프로젝트 소개
 
 - Unity 6(`6000.3.15f1`) 기반 **2D 횡스크롤 로그라이크 액션 게임**
-- 개발 기간: **2026-05-15 ~ 2026-06-14 (약 4주)** · 이후 보완 2026-08-30 ~ 09-04
+- 개발 기간: **2026-05-15 ~ 2026-06-14 (약 4주)** · 이후 보완 2026-08-30 ~ 09-07
 - 개발 인원: **1명 (개인 프로젝트)**
 
 | | |
@@ -66,12 +66,37 @@ Unity 6 기반 2D 횡스크롤 로그라이크 액션 게임.
 
 ### 전투 시스템
 
-- **히트박스 / 허트박스 분리** — `MeleeHitbox` 는 활성화 1회당 1히트만 판정합니다.
+- **히트박스 / 허트박스 분리** — 적의 `MeleeHitbox` 는 활성화 1회당 1히트만 판정합니다.
+- **플레이어 근접 판정은 박스** — 원형(`hitRadius`)이 아니라 몸통 앞으로 뻗는 사각형(`hitRange` 1.4 × `hitHeight` 1.9)입니다.
+  원형은 키가 작은 적이 반경 밖으로 빠져나가 헛스윙이 났습니다.
+- **판정 창(`hitWindow` 0.12초)** — 히트 프레임에서 1프레임만 검사하면 프레임 드랍에 판정이 통째로 사라집니다.
+  창이 열린 동안 매 프레임 검사하되 `HashSet<int>` 로 스윙당 같은 적을 한 번만 때립니다.
+- **입력 버퍼(`attackBufferTime` 0.16초)** — 쿨다운 중에 누른 공격을 기억했다가 쿨다운이 풀리는 즉시 발동합니다.
+  버퍼가 없으면 연타 타이밍이 조금만 일러도 입력이 그대로 버려집니다.
 - **데미지 단일 출처** — `EnemyController.damage` 가 근접·원거리 모두를 결정합니다. 밸런스를 만질 때 고칠 자리가 하나뿐입니다.
 - **무기 3계열** — 근접 / 원거리 / 마법. `WeaponData`(ScriptableObject)로 정의하고 2슬롯 장착 후 `C` 로 전환합니다.
 - **액세서리 21종**이 `StatBonus` 구조체로 합산되어 데미지 · 이속 · 점프력 · 대쉬 횟수/거리 · 흡혈 · 반사 · 관통 등에 반영됩니다.
 - **연출과 판정 분리** — `attackDamageDelay` 로 공격 모션이 시작된 뒤 판정이 들어갑니다.
 - 투사체는 `ObjectPool<T>` 로 재사용합니다.
+
+### 지형 · 낙사
+
+- **방 지형은 ASCII 레이아웃으로 정의합니다.** 에디터 도구 `MapLayoutTool`(`Assets/Editor/`)이 문자열 격자를 읽어
+  방 프리팹의 타일맵에 지면(`#`)·발판·구덩이를 찍습니다. 손으로 칠하는 것보다 **재현·되돌리기가 쉽고,
+  점프 사거리 대비 구덩이 폭을 수치로 검증**할 수 있습니다.
+- **낙사는 즉사가 아닙니다** (`FallZone`). 던그리드 방식으로 **유효 최대 HP의 12%** 를 깎고
+  마지막으로 밟고 있던 지점으로 되돌립니다. 카메라는 스냅 + 셰이크로 반응합니다.
+- 낙하 기준선(`killY`)은 방 안 `Ground` 레이어 타일맵의 최하단에서 자동 계산되므로, 방마다 손으로 맞출 필요가 없습니다.
+- 복귀 지점은 접지 상태일 때만 0.25초 간격으로 샘플링합니다. 스폰 직후 추락처럼 기록이 없으면 `PlayerSpawnPoint` 로 보냅니다.
+
+### 편의 기능
+
+| 기능 | 구현 |
+|---|---|
+| **미니맵** | `MinimapController` — 전용 카메라를 256×256 `RenderTexture` 에 렌더해 `RawImage` 로 출력, 플레이어 마커 표시 |
+| **런 통계** | `RunStats` — 플레이 타임 · 처치 수 · 획득 골드 · 준/받은 피해 · 획득 아이템을 누적해 클리어/게임오버 화면에 표시 |
+| **한국어 / 영어** | Unity Localization(`en`, `ko-KR`). `LocalizedLabel` · `AutoLocalizePanel` 로 패널이 ID만 들고 문자열은 테이블에서 받습니다 |
+| **키 리바인딩** | `InputManager` — 모든 시스템이 하드코딩 대신 `InputManager` 에 키를 물어봅니다 |
 
 ### 적 AI
 
@@ -123,11 +148,13 @@ Unity 6 기반 2D 횡스크롤 로그라이크 액션 게임.
 |---|---|
 | **엔진 · 언어** | Unity 6000.3.15f1 · C# |
 | **입력** | 레거시 Input + `InputManager` 키 리바인딩 레이어 |
-| **데이터** | ScriptableObject (무기 / 액세서리 / 강화 설정 / 로컬라이징) |
+| **데이터** | ScriptableObject (무기 / 액세서리 / 강화 설정 / 대사) |
+| **로컬라이징** | Unity Localization 1.5.2 — 한국어 / 영어 스트링 테이블 |
 | **비동기** | UniTask (`CancellationToken` 필수) |
 | **저장** | `JsonUtility` + AES-256(CBC) + 원자적 파일 교체 |
 | **풀링** | 자체 `ObjectPool<T>` |
-| **UI** | uGUI · TravelBook Lite 픽셀 키트 기반 자체 디자인 시스템 |
+| **에디터 도구** | `MapLayoutTool` — ASCII 레이아웃 → 타일맵 지형 생성 |
+| **UI** | uGUI · TravelBook Lite 픽셀 UI 키트 |
 | **아트** | 상용 픽셀 에셋 (별도 저장소로 분리) |
 
 ---
@@ -137,18 +164,22 @@ Unity 6 기반 2D 횡스크롤 로그라이크 액션 게임.
 ```
 Assets/
 ├── Scene/MainTest.unity   ← 유일한 빌드 씬 (부트스트랩)
+├── Editor/MapLayoutTool.cs ← ASCII 레이아웃 → 타일맵 지형 생성 (에디터 전용)
 ├── Scripts/
-│   ├── Player/            PlayerController, Movement, Combat, Health, CameraFollow
+│   ├── Player/            PlayerController, Movement, Combat, Weapon, Health, CameraFollow, FallZone
 │   ├── Enemy/             EnemyController, BossController(+Patterns), MiniBoss, SpawnManager
 │   ├── Items/             Inventory, TreasureChest, WorldGold/Potion
 │   ├── Weapons/           WeaponData(SO), WeaponInventory
 │   ├── Shop/              Shop, ShopUI, UpgradeShopUI
 │   ├── Save/              SaveManager(AES), SaveData, MetaUpgrades, ItemDatabase
 │   ├── NPC/               DialogueUI, NpcController
-│   ├── UI/                GameFlowController, RoomManager, InputManager, TimeScaleLock, 로컬라이징
+│   ├── UI/                GameFlowController, RoomManager, InputManager, TimeScaleLock,
+│   │                      MinimapController, RunStats, 로컬라이징(L10n/LanguageManager)
 │   └── ObjectPool.cs
-├── Prefabs/               Player, Enemy, map(방), Object, UI, NPC
-├── Data/                  ScriptableObject (무기 / 액세서리 / 강화 설정 / 로컬라이징)
+├── Prefabs/               Player, Enemy, map(방 20 + 보스/미니보스/상점/튜토리얼/마을), Object, UI, NPC
+├── Data/
+│   ├── Weapons/ Accessories/  ScriptableObject (무기 / 액세서리 / 강화 설정)
+│   └── Localization/          스트링 테이블 (en / ko-KR)
 └── Animations/
 ```
 
@@ -178,26 +209,6 @@ Assets/
 - 비동기는 UniTask. 모든 루프에 `CancellationToken` 을 전달해 파괴된 오브젝트 접근을 막습니다.
 - `Time.timeScale` 은 `TimeScaleLock` 한 곳에서만 씁니다(참조 카운트). 모달이 겹쳐도 어긋나지 않습니다.
 
-### UI 디자인 시스템
-
-에셋은 **TravelBook Lite** 픽셀 UI 키트 하나로 통일했습니다.
-새 패널을 만들 때는 아래 대응표를 따르면 나머지 화면과 자동으로 맞습니다.
-
-| 역할 | 스프라이트 | 배경색 | 그 위 텍스트 |
-|---|---|---|---|
-| 패널 배경 | `BookCover01a` | 와인 `#B75B5F` | 크림 `#FFEBBF` |
-| 슬롯 | `Slot01a` | 다크 `#45292A` | 크림 `#FFEBBF` |
-| 버튼 | `Frame01a` | 토프 `#C6B09B` | 다크 `#402E1F` |
-| 선택 표시 | `FrameSelect01a` / `Select01a` | — | — |
-| 게이지 배경 / 채움 | `Bar01a` / `Fill01a` | — | — |
-| 구분선 | `Line01a` | — | — |
-| 딤 배경 | 없음 | 검정 `a=0.66` | — |
-
-**텍스트 3색**: 본문 크림 `#FFEBBF` · 제목/강조 골드 `#FFD966` · 버튼 위 다크 `#402E1F`
-
-모든 Image 는 `Type: Sliced`, `Pixels Per Unit Multiplier: 0.25`
-(픽셀아트 4배 확대 — 이 값을 1로 두면 테두리가 화면에서 1~2px로 뭉개집니다).
-
 ---
 
 ## 트러블슈팅
@@ -225,6 +236,24 @@ Assets/
 
 → `chaseYThreshold`(높이 차 임계값)와 `edgeCheckDepth`(발밑 검사)를 넣었습니다.
 높이 차가 크면 추격하지 않고, 순찰 중 발밑이 비면 방향을 되돌립니다.
+
+### 4. 지형에 구덩이를 내자 게임이 진행 불가가 되던 문제
+
+방을 평지에서 플랫포머 지형으로 바꾸면서 구덩이를 넣었더니, 빠진 플레이어가 **무한히 낙하**했습니다.
+바닥이 없으니 죽지도, 올라오지도 못하는 상태였습니다.
+
+→ `FallZone` 을 방 프리팹 루트에 붙였습니다. 즉사시키는 대신 최대 HP의 12%를 깎고
+마지막 접지 지점으로 되돌립니다. 기준선은 방 안 `Ground` 타일맵 최하단에서 자동 계산해
+방마다 수동으로 맞출 필요를 없앴습니다.
+
+### 5. 언어 전환 직후 터지던 `MissingReferenceException`
+
+`LanguageManager` 가 Unity Localization 초기화를 `await` 하는 동안, 대기 중이던 UI가 파괴되면
+복귀 시점에 이미 없는 오브젝트를 건드렸습니다. 방 전환처럼 UI가 자주 갈아엎히는 구간에서 재현됐습니다.
+
+→ 모든 대기에 `GetCancellationTokenOnDestroy()` 를 넘겼습니다.
+오브젝트가 파괴되면 `await` 가 그 자리에서 취소되고 이후 코드가 실행되지 않습니다.
+이 규칙은 프로젝트 전체 비동기 코드에 동일하게 적용했습니다.
 
 ---
 
@@ -275,8 +304,7 @@ cp -r /tmp/assets/Imported Assets/
 ### 텍스처 임포트 설정
 
 에셋 저장소에서 받으면 `.meta` 의 아래 설정이 함께 따라옵니다.
-에셋스토어에서 **새로 임포트할 때만** 직접 맞춰주세요 —
-기본값이면 픽셀아트가 흐릿해지고 UI 테두리가 뭉개집니다.
+에셋스토어에서 **새로 임포트할 때만** 직접 맞춰주세요 — 기본값이면 픽셀아트가 흐릿해집니다.
 
 | 설정 | 값 | 이유 |
 |---|---|---|
@@ -284,16 +312,4 @@ cp -r /tmp/assets/Imported Assets/
 | Compression | **None** | 작은 픽셀 스프라이트에 압축 아티팩트가 낌 |
 | Generate Mip Maps | 끔 | UI에 불필요 |
 
-그리고 TravelBook UI 스프라이트의 **9-slice 테두리(Sprite Editor → Border)** 를
-아래처럼 설정해야 패널을 늘려도 테두리가 유지됩니다.
-
-| 스프라이트 | L, B, R, T |
-|---|---|
-| `BookCover01a` | 8, 7, 8, 7 |
-| `Popup01a` | 2, 4, 4, 1 |
-| `Frame01a` | 2, 3, 2, 2 |
-| `FrameSelect01a` / `01b` | 3, 3, 3, 1 / 3, 3, 3, 2 |
-| `Slot01a` / `01b` / `01c` | 2, 2, 2, 3 |
-| `Bar01a` | 3, 1, 2, 1 |
-| `Select01a` | 6, 6, 6, 6 |
-| `Line01a` | 9, 0, 9, 0 |
+UI 스프라이트의 9-slice 테두리 값은 `.meta` 에 들어 있으므로 별도 설정이 필요 없습니다.
