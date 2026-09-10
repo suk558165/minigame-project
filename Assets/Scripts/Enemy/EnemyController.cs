@@ -164,6 +164,8 @@ public class EnemyController : MonoBehaviour, IDamageable
             player = PlayerRef.Transform;
             Physics2D.IgnoreLayerCollision(gameObject.layer, PlayerRef.GameObject.layer, true);
         }
+        // 적끼리 물리 충돌하면 겹쳐 스폰될 때 서로 머리 위로 올라탄다. 간격은 CheckAllies로 벌린다.
+        Physics2D.IgnoreLayerCollision(gameObject.layer, gameObject.layer, true);
         spawnDelayTimer = spawnDelay;
         // 스폰 직후 즉시 공격 방지 — 첫 공격도 쿨다운 후에 발동
         attackTimer = attackCooldown;
@@ -304,6 +306,11 @@ public class EnemyController : MonoBehaviour, IDamageable
         else if (distFromOrigin <= -patrolDistance)
             patrolDir = 1;
 
+        // 가는 방향이 다른 적에게 막혀 있으면 반대편이 비었을 때만 돌아선다 (양쪽 다 막히면 매 프레임 뒤집히므로).
+        CheckAllies(out bool leftTaken, out bool rightTaken, out _);
+        if (patrolDir < 0 ? leftTaken && !rightTaken : rightTaken && !leftTaken)
+            patrolDir = -patrolDir;
+
         if (IsEdgeAhead(patrolDir))
         {
             patrolDir = -patrolDir;
@@ -341,10 +348,59 @@ public class EnemyController : MonoBehaviour, IDamageable
                 .collider == null;
     }
 
+    const float SeparationSpeed = 1.5f;
+    const float SeparationMargin = 0.15f;
+
+    /// <summary>
+    /// 같은 층의 다른 적과의 간격 검사.
+    /// left/rightTaken: 그 방향으로 걸어가면 겹치는지 (여유 간격 포함 — 경계에서 걷기/멈춤이 떨리지 않게).
+    /// push: 이미 겹쳐 있을 때 밀려나야 할 방향과 세기(-1~1).
+    /// </summary>
+    void CheckAllies(out bool leftTaken, out bool rightTaken, out float push)
+    {
+        leftTaken = rightTaken = false;
+        push = 0f;
+        if (col == null)
+            return;
+
+        Bounds me = col.bounds;
+        foreach (var other in Instances)
+        {
+            if (other == this || other.isDead || other.col == null)
+                continue;
+            Bounds ob = other.col.bounds;
+            if (Mathf.Abs(me.min.y - ob.min.y) > 0.5f)
+                continue; // 다른 층
+
+            float dx = me.center.x - ob.center.x;
+            float minDist = me.extents.x + ob.extents.x;
+            if (Mathf.Abs(dx) >= minDist + SeparationMargin)
+                continue;
+
+            // 완전히 같은 위치면 인스턴스 ID로 방향을 갈라 서로 반대로 밀리게 한다.
+            float away = Mathf.Abs(dx) > 0.001f
+                ? Mathf.Sign(dx)
+                : (GetInstanceID() > other.GetInstanceID() ? 1f : -1f);
+            if (away > 0f)
+                leftTaken = true;
+            else
+                rightTaken = true;
+            // 겹친 깊이로 가중한다. 방향만 더하면 양옆에 끼인 적은 밀림이 상쇄되어 멈춘다.
+            if (Mathf.Abs(dx) < minDist)
+                push += away * (minDist - Mathf.Abs(dx));
+        }
+        push = Mathf.Clamp(push, -1f, 1f);
+    }
+
     void Move(float dir)
     {
-        rb.linearVelocity = new Vector2(dir * moveSpeed, rb.linearVelocity.y);
-        animator.SetFloat(HashSpeed, Mathf.Abs(dir));
+        CheckAllies(out bool leftTaken, out bool rightTaken, out float push);
+        float vx = (dir < 0f && leftTaken) || (dir > 0f && rightTaken) ? 0f : dir * moveSpeed;
+        if (push != 0f && !IsEdgeAhead(push))
+            vx += push * SeparationSpeed;
+
+        rb.linearVelocity = new Vector2(vx, rb.linearVelocity.y);
+        animator.SetFloat(HashSpeed, vx != 0f ? 1f : 0f);
 
         if (dir > 0f)
             SetFacing(true);

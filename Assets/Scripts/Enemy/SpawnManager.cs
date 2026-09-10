@@ -183,15 +183,71 @@ public class SpawnManager : MonoBehaviour
         }
     }
 
+    const float SpawnSpacing = 1.5f;
+
+    // 이펙트 대기 중인 자리. 같은 포인트의 그룹이 동시에 시작해도 같은 자리를 고르지 않게 한다.
+    private readonly List<Vector3> reservedSpawnPositions = new List<Vector3>();
+
+    /// <summary>
+    /// 스폰포인트 주변에서 살아있는 적·예약된 자리와 겹치지 않는 곳을 고른다.
+    /// 0, +1, -1, +2, -2 칸 순서로 찾고, 옆 칸은 지형 안이거나 발밑이 비어 있으면 건너뛴다.
+    /// </summary>
+    Vector3 PickSpawnPosition(Vector3 point)
+    {
+        int solidMask = LayerMask.GetMask("Ground");
+        int floorMask = LayerMask.GetMask("Ground", "Platform");
+        for (int i = 0; i < 9; i++)
+        {
+            int step = (i + 1) / 2 * (i % 2 == 1 ? 1 : -1);
+            Vector3 candidate = point + Vector3.right * (step * SpawnSpacing);
+            if (IsSpawnOccupied(candidate))
+                continue;
+            if (
+                i > 0
+                && (
+                    Physics2D.OverlapPoint(candidate, solidMask) != null
+                    || Physics2D.Raycast(candidate, Vector2.down, 3f, floorMask).collider == null
+                )
+            )
+                continue;
+            return candidate;
+        }
+        return point;
+    }
+
+    bool IsSpawnOccupied(Vector3 pos)
+    {
+        float minGap = SpawnSpacing * 0.9f;
+        foreach (var r in reservedSpawnPositions)
+            if (Mathf.Abs(r.x - pos.x) < minGap && Mathf.Abs(r.y - pos.y) < 1f)
+                return true;
+        foreach (var e in EnemyController.Instances)
+        {
+            Vector3 p = e.transform.position;
+            if (!e.IsDead && Mathf.Abs(p.x - pos.x) < minGap && Mathf.Abs(p.y - pos.y) < 1f)
+                return true;
+        }
+        return false;
+    }
+
     async UniTask SpawnEnemyWithEffect(GameObject prefab, Vector3 position, CancellationToken token)
     {
-        if (spawnEffectPrefab != null)
+        position = PickSpawnPosition(position);
+        reservedSpawnPositions.Add(position);
+        try
         {
-            var fxPos = position + new Vector3(0f, spawnEffectYOffset, 0f);
-            var fx = Instantiate(spawnEffectPrefab, fxPos, Quaternion.identity);
-            Destroy(fx, 0.8f);
-            if (spawnEffectDelay > 0f)
-                await UniTask.Delay(System.TimeSpan.FromSeconds(spawnEffectDelay), cancellationToken: token);
+            if (spawnEffectPrefab != null)
+            {
+                var fxPos = position + new Vector3(0f, spawnEffectYOffset, 0f);
+                var fx = Instantiate(spawnEffectPrefab, fxPos, Quaternion.identity);
+                Destroy(fx, 0.8f);
+                if (spawnEffectDelay > 0f)
+                    await UniTask.Delay(System.TimeSpan.FromSeconds(spawnEffectDelay), cancellationToken: token);
+            }
+        }
+        finally
+        {
+            reservedSpawnPositions.Remove(position);
         }
 
         var go = Instantiate(prefab, position, Quaternion.identity);
