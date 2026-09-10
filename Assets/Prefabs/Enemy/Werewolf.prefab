@@ -300,7 +300,7 @@ MonoBehaviour:
   moveSpeed: 2.2
   damage: 15
   detectionRange: 7
-  attackRange: 3.7954288
+  attackRange: 3.37
   attackCooldown: 1.5
   spawnDelay: 2.5
   groundLayer:
@@ -311,8 +311,9 @@ MonoBehaviour:
   isRanged: 0
   aimAtPlayer: 0
   projectilePrefab: {fileID: 0}
-  firePoint: {fileID: 2973972471597269142}
+  firePoint: {fileID: 0}
   projectileSpeed: 8
+  projectileScale: 1
   safeDistance: 3
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8

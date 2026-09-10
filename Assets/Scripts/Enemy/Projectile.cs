@@ -24,10 +24,12 @@ public class Projectile : MonoBehaviour
     private float homingTurnSpeed;
     private System.Collections.Generic.HashSet<int> hitIds = new();
     private Rigidbody2D rb;
+    private SpriteRenderer sr;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        sr = GetComponentInChildren<SpriteRenderer>();
         rb.gravityScale = 0f;
         rb.linearDamping = 0f;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
@@ -66,6 +68,9 @@ public class Projectile : MonoBehaviour
         rb.linearVelocity = direction.normalized * speed;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle - spriteAngleOffset);
+        // 회전만 하면 반대쪽으로 날아갈 때 그림이 위아래로 뒤집힌다(해골·불꽃 등). 세로 반전으로 바로 세운다.
+        if (sr != null)
+            sr.flipY = Mathf.Abs(Mathf.DeltaAngle(0f, angle - spriteAngleOffset)) > 90f;
         Invoke(nameof(Activate), 0.05f);
         Invoke(nameof(ReleaseSelf), lifetime);
     }

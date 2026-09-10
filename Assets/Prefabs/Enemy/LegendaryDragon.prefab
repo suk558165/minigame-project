@@ -35,6 +35,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6857617571038101239}
+  - {fileID: 3903744181935252713}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &4881896070494230276
@@ -216,10 +217,11 @@ MonoBehaviour:
   patrolDistance: 4
   chaseYThreshold: 1.2
   isRanged: 1
-  aimAtPlayer: 0
+  aimAtPlayer: 1
   projectilePrefab: {fileID: 7145775547899398135, guid: ec24f22582f050242be89ff46466e97a, type: 3}
-  firePoint: {fileID: 6857617571038101239}
+  firePoint: {fileID: 3903744181935252713}
   projectileSpeed: 8
+  projectileScale: 3.5
   safeDistance: 4.592967
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
@@ -227,7 +229,7 @@ MonoBehaviour:
   hpBarOffset: {x: 0, y: -0.6, z: 0}
   knockbackForce: 6
   knockbackDuration: 0.15
-  attackSound: {fileID: 8300000, guid: d936ed9354f06534f83f6296fbab71e6, type: 3}
+  attackSound: {fileID: 8300000, guid: 2e613ef3a69195c43b4bcc08896be9b1, type: 3}
   deathSound: {fileID: 8300000, guid: 72265339aaff48742995e6a979ab6b29, type: 3}
   meleeHitbox: {fileID: 3317682275281999150}
   goldDropPrefab: {fileID: 5989661564655741517, guid: 03b4c7e6075cc50478996617d47a47b3, type: 3}
@@ -240,8 +242,39 @@ MonoBehaviour:
   platformLayer:
     serializedVersion: 2
     m_Bits: 512
-  spriteFacesLeft: 1
+  spriteFacesLeft: 0
   attackDamageDelay: 0.65
+--- !u!1 &6568375337254695808
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3903744181935252713}
+  m_Layer: 0
+  m_Name: FirePoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3903744181935252713
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6568375337254695808}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.828883, y: 1.5676142, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6893002541934049334}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8995280196249140786
 GameObject:
   m_ObjectHideFlags: 0

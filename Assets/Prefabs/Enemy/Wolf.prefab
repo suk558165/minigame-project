@@ -207,7 +207,7 @@ MonoBehaviour:
   moveSpeed: 2.2
   damage: 12
   detectionRange: 7
-  attackRange: 4.6995645
+  attackRange: 4.23
   attackCooldown: 1.5
   spawnDelay: 2.5
   groundLayer:
@@ -220,6 +220,7 @@ MonoBehaviour:
   projectilePrefab: {fileID: 0}
   firePoint: {fileID: 0}
   projectileSpeed: 8
+  projectileScale: 1
   safeDistance: 3
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
@@ -227,7 +228,7 @@ MonoBehaviour:
   hpBarOffset: {x: 0, y: -0.6, z: 0}
   knockbackForce: 6
   knockbackDuration: 0.15
-  attackSound: {fileID: 8300000, guid: d936ed9354f06534f83f6296fbab71e6, type: 3}
+  attackSound: {fileID: 8300000, guid: a7b5af98318064c40a1393425cf1729a, type: 3}
   deathSound: {fileID: 8300000, guid: 72265339aaff48742995e6a979ab6b29, type: 3}
   meleeHitbox: {fileID: 1002739566803246385}
   goldDropPrefab: {fileID: 5989661564655741517, guid: 03b4c7e6075cc50478996617d47a47b3, type: 3}

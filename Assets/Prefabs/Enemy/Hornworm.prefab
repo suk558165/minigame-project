@@ -67,7 +67,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.5472464, y: 0.20289855}
+  m_Offset: {x: 0.5472464, y: 0.637681}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -107,7 +107,6 @@ GameObject:
   - component: {fileID: 426108173593186035}
   - component: {fileID: 8284055532814429743}
   - component: {fileID: 1051856010959419470}
-  - component: {fileID: 3864755098429980083}
   m_Layer: 7
   m_Name: Hornworm
   m_TagString: Untagged
@@ -301,7 +300,7 @@ MonoBehaviour:
   moveSpeed: 1.5
   damage: 14
   detectionRange: 6
-  attackRange: 3.7584
+  attackRange: 2.87
   attackCooldown: 1.8
   spawnDelay: 2.5
   groundLayer:
@@ -309,19 +308,21 @@ MonoBehaviour:
     m_Bits: 576
   patrolDistance: 4
   chaseYThreshold: 1.2
+  isFlying: 0
   isRanged: 0
   aimAtPlayer: 0
   projectilePrefab: {fileID: 0}
   firePoint: {fileID: 0}
   projectileSpeed: 8
+  projectileScale: 1
   safeDistance: 3
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
   projectileSpinSpeed: 0
-  hpBarOffset: {x: 0, y: -0.6, z: 0}
+  hpBarOffset: {x: 0, y: 0.8086951, z: 0}
   knockbackForce: 6
   knockbackDuration: 0.15
-  attackSound: {fileID: 8300000, guid: a7b5af98318064c40a1393425cf1729a, type: 3}
+  attackSound: {fileID: 8300000, guid: c61655a97fa8748498185306b6e2a7d5, type: 3}
   deathSound: {fileID: 8300000, guid: 72265339aaff48742995e6a979ab6b29, type: 3}
   meleeHitbox: {fileID: 2114419280557197980}
   goldDropPrefab: {fileID: 5989661564655741517, guid: 03b4c7e6075cc50478996617d47a47b3, type: 3}
@@ -336,17 +337,3 @@ MonoBehaviour:
     m_Bits: 512
   spriteFacesLeft: 0
   attackDamageDelay: 0.4
---- !u!114 &3864755098429980083
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5673119980097987662}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d4ce8ba31c37e4747b3d02cf9a3d4423, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ShieldController
-  blockAngle: 70
-  blockSound: {fileID: 8300000, guid: ed8572017028ae946a9ee417ea8668c9, type: 3}

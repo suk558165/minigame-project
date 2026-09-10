@@ -207,7 +207,7 @@ MonoBehaviour:
   moveSpeed: 2
   damage: 10
   detectionRange: 6
-  attackRange: 2.21697
+  attackRange: 1.95
   attackCooldown: 1.2
   spawnDelay: 2.5
   groundLayer:

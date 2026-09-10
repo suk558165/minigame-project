@@ -97,7 +97,7 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: 0.08, y: 0}
   m_Radius: 0.1
 --- !u!212 &1732189843492051413
 SpriteRenderer:
@@ -194,3 +194,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Projectile
   lifetime: 5
   spriteAngleOffset: 0
+  blockingLayer:
+    serializedVersion: 2
+    m_Bits: 0

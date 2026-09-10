@@ -261,7 +261,11 @@ public class MiniBossController : MonoBehaviour, IDamageable
             left.transform.rotation = Quaternion.identity;
             var leftSr = left.GetComponent<SpriteRenderer>();
             if (leftSr != null)
+            {
                 leftSr.flipX = false;
+                // Projectile.Init이 왼쪽 방향이면 세로 반전을 켜므로, 회전을 되돌린 파동은 다시 끈다.
+                leftSr.flipY = false;
+            }
 
             var right = wavePool.Get(origin, Quaternion.identity);
             right.Pool = wavePool;
