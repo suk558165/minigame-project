@@ -130,7 +130,11 @@ public partial class BossController
             return;
 
         AudioManager.Instance?.PlaySFX(projectileSound);
-        Vector2 baseDir = ((Vector2)player.position - (Vector2)transform.position).normalized;
+        // 기준점(발밑)끼리 조준하면 발밑에서 바닥으로 쏜다. 몸 중앙에서 플레이어 몸 중앙을 노린다.
+        Vector2 origin = col != null && col.enabled ? (Vector2)col.bounds.center : (Vector2)transform.position;
+        var playerCol = player.GetComponent<Collider2D>();
+        Vector2 target = playerCol != null ? (Vector2)playerCol.bounds.center : (Vector2)player.position;
+        Vector2 baseDir = (target - origin).normalized;
         float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
 
         for (int i = 0; i < projectileCount; i++)
@@ -146,7 +150,7 @@ public partial class BossController
             float angle = (baseAngle + offset) * Mathf.Deg2Rad;
             Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
 
-            var projComp = GetPooledProjectile();
+            var projComp = GetPooledProjectile(origin);
             projComp.Pool = projPool;
             projComp.Init(dir, projectileSpeed, damage, gameObject);
         }
@@ -154,11 +158,11 @@ public partial class BossController
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.25f), cancellationToken: token);
     }
 
-    Projectile GetPooledProjectile()
+    Projectile GetPooledProjectile(Vector2 origin)
     {
         if (projPool == null)
             projPool = new ObjectPool<Projectile>(projectilePrefab.GetComponent<Projectile>());
-        return projPool.Get(transform.position, Quaternion.identity);
+        return projPool.Get(origin, Quaternion.identity);
     }
 
     // ── Phase 2 패턴: 바닥 가시 (공중 이탈 후 랜덤 가시) ──

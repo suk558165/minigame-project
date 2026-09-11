@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -30,12 +30,21 @@ public class EnemyController : MonoBehaviour, IDamageable
     public float patrolDistance = 4f;
     public float chaseYThreshold = 1.2f;
 
+    [Header("Flying")]
+    [Tooltip("체크하면 중력 없이 날아다니며 층을 넘어 추격하고, 옆에 붙어 돌진 공격한다 (박쥐·벌)")]
+    public bool isFlying = false;
+
     [Header("Ranged")]
     public bool isRanged = false;
     public bool aimAtPlayer = false;
     public GameObject projectilePrefab;
+
+    [Tooltip("오른쪽을 볼 때 기준으로 배치한다. 왼쪽을 보면 좌우가 자동으로 뒤집힌다")]
     public Transform firePoint;
     public float projectileSpeed = 8f;
+
+    [Tooltip("발사체 크기 배수. 몸집이 큰 적일수록 크게")]
+    public float projectileScale = 1f;
     private ObjectPool<Projectile> projPool;
     public float safeDistance = 3f;
 
@@ -80,6 +89,25 @@ public class EnemyController : MonoBehaviour, IDamageable
     [Tooltip("원본 스프라이트가 왼쪽을 보고 있으면 체크")]
     public bool spriteFacesLeft = false;
 
+    // 추격 연출 — 던그리드·스컬 계열 기준값
+    const float AggroMemory = 3f; // 시야에서 놓친 뒤에도 추격을 유지하는 시간
+    const float LeashMultiplier = 1.5f; // 추격 중에는 감지 범위의 이 배수까지 계속 쫓는다
+    const float AlertDuration = 0.35f; // 발견 순간 멈칫하는 시간
+    const float AlertHopSpeed = 3.5f;
+    const float ChaseSpeedMultiplier = 1.5f;
+    const float FacingDeadzone = 0.3f; // 플레이어가 바로 위·아래일 때 좌우가 매 프레임 뒤집히지 않게
+    const float HitStunDuration = 0.3f;
+    const float RetreatRatio = 0.5f; // 원거리 적은 safeDistance의 이 비율보다 가까우면 물러난다
+    const float PlayerCenterHeight = 0.9f;
+
+    // 비행 몬스터
+    const float FlyHoverHeight = 1.5f; // 순찰할 때 스폰 지점보다 이만큼 떠서 다닌다
+    const float FlyBobAmplitude = 0.25f;
+    const float FlyAcceleration = 12f; // 속도를 즉시 바꾸지 않고 가속해 날갯짓 관성을 준다
+    const float FlyAttackSlotTolerance = 0.4f;
+    const float LungeDuration = 0.25f;
+    const float LungeSpeedMultiplier = 4f;
+
     private Rigidbody2D rb;
     private Animator animator;
     private SpriteRenderer sr;
@@ -87,6 +115,7 @@ public class EnemyController : MonoBehaviour, IDamageable
 
     private float hp;
     private float hitboxOffsetX;
+    private float hitboxCenterY;
     private bool isDead;
     public bool IsDead => isDead;
     private float attackTimer;
@@ -95,8 +124,16 @@ public class EnemyController : MonoBehaviour, IDamageable
     public float attackDamageDelay = 0.2f;
 
     private Transform player;
+    private Collider2D playerCol;
     private Vector2 patrolOrigin;
     private int patrolDir = 1;
+
+    private float aggroTimer;
+    private float alertTimer;
+    private float hitStunTimer;
+    private float attackGrace;
+    private float lungeTimer;
+    private Vector2 lungeDir;
 
     private CancellationTokenSource _cts = new();
 
@@ -104,6 +141,7 @@ public class EnemyController : MonoBehaviour, IDamageable
     private static readonly int HashAttack = Animator.StringToHash("Attack");
     private static readonly int HashIsDead = Animator.StringToHash("IsDead");
     private static readonly int HashIsHit = Animator.StringToHash("IsHit");
+    private static readonly int StateAttack = Animator.StringToHash("Attack");
 
     CancellationToken RefreshToken()
     {
@@ -124,10 +162,14 @@ public class EnemyController : MonoBehaviour, IDamageable
         healthBar = gameObject.AddComponent<EnemyHealthBar>();
         healthBar.Init(hpBarOffset);
 
+        if (isFlying)
+            rb.gravityScale = 0f;
+
         if (meleeHitbox != null)
         {
             meleeHitbox.enabled = false;
             hitboxOffsetX = Mathf.Abs(meleeHitbox.offset.x);
+            hitboxCenterY = meleeHitbox.offset.y * meleeHitbox.transform.lossyScale.y;
         }
     }
 
@@ -147,6 +189,8 @@ public class EnemyController : MonoBehaviour, IDamageable
         }
     }
 
+    bool IsFacingRight => spriteFacesLeft ? sr.flipX : !sr.flipX;
+
     void OnEnable() => Instances.Add(this);
 
     void OnDisable() => Instances.Remove(this);
@@ -162,8 +206,11 @@ public class EnemyController : MonoBehaviour, IDamageable
         if (PlayerRef.Exists)
         {
             player = PlayerRef.Transform;
+            playerCol = PlayerRef.GameObject.GetComponent<Collider2D>();
             Physics2D.IgnoreLayerCollision(gameObject.layer, PlayerRef.GameObject.layer, true);
         }
+        // 적끼리 물리 충돌하면 겹쳐 스폰될 때 서로 머리 위로 올라탄다. 간격은 CheckAllies로 벌린다.
+        Physics2D.IgnoreLayerCollision(gameObject.layer, gameObject.layer, true);
         spawnDelayTimer = spawnDelay;
         // 스폰 직후 즉시 공격 방지 — 첫 공격도 쿨다운 후에 발동
         attackTimer = attackCooldown;
@@ -175,6 +222,15 @@ public class EnemyController : MonoBehaviour, IDamageable
             return;
 
         attackTimer -= Time.deltaTime;
+        attackGrace -= Time.deltaTime;
+
+        // 경직 중에는 속도를 건드리지 않는다 — 넉백이 이동 처리에 덮여 사라지지 않게.
+        if (hitStunTimer > 0f)
+        {
+            hitStunTimer -= Time.deltaTime;
+            animator.SetFloat(HashSpeed, 0f);
+            return;
+        }
 
         if (spawnDelayTimer > 0f)
         {
@@ -183,85 +239,220 @@ public class EnemyController : MonoBehaviour, IDamageable
             return;
         }
 
-        float dist =
-            player != null ? Vector2.Distance(transform.position, player.position) : float.MaxValue;
+        // 공격 모션 중에는 제자리(비행 몬스터는 돌진). 미끄러지며 휘두르지 않게 한다.
+        if (IsAttacking())
+        {
+            if (isFlying)
+                UpdateLunge();
+            else
+                Move(0f);
+            return;
+        }
 
+        UpdateAggro();
+        if (aggroTimer <= 0f)
+        {
+            Patrol();
+            return;
+        }
+
+        if (alertTimer > 0f)
+        {
+            alertTimer -= Time.deltaTime;
+            if (isFlying)
+                Fly(Vector2.zero, 0f);
+            else
+                Move(0f);
+            FacePlayer();
+            return;
+        }
+
+        if (isFlying)
+            UpdateFlying();
+        else if (isRanged)
+            UpdateRanged();
+        else
+            UpdateMelee();
+    }
+
+    bool IsAttacking() =>
+        attackGrace > 0f || animator.GetCurrentAnimatorStateInfo(0).shortNameHash == StateAttack;
+
+    Vector2 PlayerCenter =>
+        playerCol != null
+            ? (Vector2)playerCol.bounds.center
+            : (Vector2)player.position + Vector2.up * PlayerCenterHeight;
+
+    // 기준점이 발밑이 아닌 스프라이트가 있다(애벌레는 발보다 1.4 아래). 높이 비교는 콜라이더 발밑끼리 한다.
+    float FeetY => col != null && col.enabled ? col.bounds.min.y : transform.position.y;
+    float PlayerFeetY => playerCol != null ? playerCol.bounds.min.y : player.position.y;
+
+    /// <summary>
+    /// 발견·추격 유지·포기를 관리한다.
+    /// 한 번 발견하면 점프로 높이가 잠깐 벌어져도 놓치지 않고, 완전히 놓치면 그 자리를 새 순찰 중심으로 삼는다.
+    /// </summary>
+    void UpdateAggro()
+    {
+        if (player == null)
+        {
+            aggroTimer = 0f;
+            return;
+        }
+
+        Vector2 d = new Vector2(player.position.x - transform.position.x, PlayerFeetY - FeetY);
+        // 비행 몬스터는 높이 제한 없이 쫓는다.
+        float yLimit = isFlying ? float.MaxValue : isRanged ? rangedYThreshold : chaseYThreshold;
+
+        if (aggroTimer > 0f)
+        {
+            if (d.magnitude <= detectionRange * LeashMultiplier && Mathf.Abs(d.y) <= yLimit)
+            {
+                aggroTimer = AggroMemory;
+                return;
+            }
+            aggroTimer -= Time.deltaTime;
+            if (aggroTimer <= 0f)
+                patrolOrigin = transform.position;
+            return;
+        }
+
+        if (d.magnitude > detectionRange || Mathf.Abs(d.y) > yLimit)
+            return;
+
+        aggroTimer = AggroMemory;
+        alertTimer = AlertDuration;
+        FacePlayer();
+        if (!isFlying && IsGrounded())
+            rb.linearVelocity = new Vector2(0f, AlertHopSpeed);
+    }
+
+    void UpdateMelee()
+    {
+        float dx = player.position.x - transform.position.x;
+        bool sameLevel = Mathf.Abs(PlayerFeetY - FeetY) <= chaseYThreshold;
+
+        if (sameLevel && Mathf.Abs(dx) <= attackRange)
+        {
+            Move(0f);
+            FacePlayer();
+            if (attackTimer <= 0f)
+                StartAttack();
+            return;
+        }
+
+        ChaseTowards(dx);
+    }
+
+    void UpdateRanged()
+    {
+        float dx = player.position.x - transform.position.x;
+        float adx = Mathf.Abs(dx);
+        bool sameLine = Mathf.Abs(PlayerFeetY - FeetY) <= rangedYThreshold;
+
+        if (!sameLine || adx > safeDistance)
+        {
+            ChaseTowards(dx);
+            return;
+        }
+
+        // 너무 붙으면 뒤로 물러나며 거리를 벌린다. 몸은 계속 플레이어를 향한다.
+        float away = -Mathf.Sign(dx);
+        if (adx < safeDistance * RetreatRatio && !IsEdgeAhead(away))
+            Move(away);
+        else
+            Move(0f);
+        FacePlayer();
+
+        if (attackTimer <= 0f)
+            StartAttack();
+    }
+
+    /// <summary>
+    /// 플레이어 옆 공격 위치로 날아가 붙는다. 히트박스 높이를 플레이어 몸 중앙에 맞춰야 돌진이 빗나가지 않는다.
+    /// </summary>
+    void UpdateFlying()
+    {
+        Vector2 target = PlayerCenter;
+        float side = transform.position.x < target.x ? -1f : 1f;
+        Vector2 slot = new Vector2(target.x + side * attackRange * 0.7f, target.y - hitboxCenterY);
+        Vector2 toSlot = slot - (Vector2)transform.position;
+
+        if (toSlot.magnitude <= FlyAttackSlotTolerance)
+        {
+            Fly(Vector2.zero, 0f);
+            FacePlayer();
+            if (attackTimer <= 0f)
+                StartAttack();
+            return;
+        }
+
+        Fly(toSlot.normalized, moveSpeed * ChaseSpeedMultiplier);
+        FacePlayer();
+    }
+
+    void UpdateLunge()
+    {
+        if (lungeTimer > 0f)
+        {
+            lungeTimer -= Time.deltaTime;
+            rb.linearVelocity = lungeDir * moveSpeed * LungeSpeedMultiplier;
+            return;
+        }
+        rb.linearVelocity = Vector2.MoveTowards(
+            rb.linearVelocity,
+            Vector2.zero,
+            FlyAcceleration * 3f * Time.deltaTime
+        );
+    }
+
+    /// <summary>
+    /// 플레이어 쪽으로 달린다. 발판 끝에 닿으면 멈춰서 플레이어를 바라보며 기다린다
+    /// (다른 층의 플레이어를 쫓아 떨어지지 않는다).
+    /// </summary>
+    void ChaseTowards(float dx)
+    {
+        if (Mathf.Abs(dx) <= FacingDeadzone)
+        {
+            Move(0f);
+            return;
+        }
+
+        float dir = Mathf.Sign(dx);
+        if (IsEdgeAhead(dir))
+        {
+            Move(0f);
+            SetFacing(dir > 0f);
+            return;
+        }
+        Move(dir, moveSpeed * ChaseSpeedMultiplier);
+    }
+
+    void FacePlayer()
+    {
+        if (player == null)
+            return;
+        float dx = player.position.x - transform.position.x;
+        if (Mathf.Abs(dx) > FacingDeadzone)
+            SetFacing(dx > 0f);
+    }
+
+    void StartAttack()
+    {
+        attackTimer = isRanged
+            ? attackCooldown * Mathf.Max(1f, rangedCooldownMultiplier)
+            : attackCooldown;
+        // 트리거를 건 프레임에는 애니메이터가 아직 Attack 상태가 아니므로 잠깐 잠금을 유지한다.
+        attackGrace = 0.1f;
+        animator.SetTrigger(HashAttack);
+        AudioManager.Instance?.PlaySFX(attackSound);
         if (isRanged)
-            UpdateRanged(dist);
-        else
-            UpdateMelee(dist);
-    }
+            ShootAfterDelay(attackDamageDelay, _cts.Token).Forget();
 
-    void UpdateMelee(float dist)
-    {
-        if (player == null)
+        if (isFlying && player != null)
         {
-            Patrol();
-            return;
-        }
-        bool sameLevel = Mathf.Abs(player.position.y - transform.position.y) <= chaseYThreshold;
-        if (dist <= detectionRange && sameLevel)
-        {
-            if (dist > attackRange)
-            {
-                float dir = player.position.x > transform.position.x ? 1f : -1f;
-                Move(IsEdgeAhead(dir) ? 0f : dir);
-            }
-            else
-            {
-                Move(0f);
-            }
-
-            if (attackTimer <= 0f && dist <= attackRange)
-            {
-                attackTimer = attackCooldown;
-                animator.SetTrigger(HashAttack);
-                AudioManager.Instance?.PlaySFX(attackSound);
-            }
-        }
-        else
-        {
-            Patrol();
-        }
-    }
-
-    void UpdateRanged(float dist)
-    {
-        if (player == null)
-        {
-            Patrol();
-            return;
-        }
-        bool sameLine = Mathf.Abs(player.position.y - transform.position.y) <= rangedYThreshold;
-        if (dist <= detectionRange && sameLine)
-        {
-            if (dist > safeDistance)
-            {
-                // 사정거리 밖 — 플레이어에게 접근
-                float dir = player.position.x > transform.position.x ? 1f : -1f;
-                Move(IsEdgeAhead(dir) ? 0f : dir);
-            }
-            else
-            {
-                // 사정거리 안 — 멈춰서 사격
-                Move(0f);
-            }
-
-            // 멈춰있을 때도 플레이어 방향으로 스프라이트 전환
-            bool playerOnLeft = player.position.x < transform.position.x;
-            SetFacing(!playerOnLeft);
-
-            if (attackTimer <= 0f && dist <= safeDistance)
-            {
-                attackTimer = attackCooldown * Mathf.Max(1f, rangedCooldownMultiplier);
-                animator.SetTrigger(HashAttack);
-                AudioManager.Instance?.PlaySFX(attackSound);
-                ShootAfterDelay(attackDamageDelay, _cts.Token).Forget();
-            }
-        }
-        else
-        {
-            Patrol();
+            Vector2 hitboxCenter = (Vector2)transform.position + Vector2.up * hitboxCenterY;
+            lungeDir = (PlayerCenter - hitboxCenter).normalized;
+            lungeTimer = LungeDuration;
         }
     }
 
@@ -270,26 +461,38 @@ public class EnemyController : MonoBehaviour, IDamageable
         if (projectilePrefab == null || player == null)
             return;
 
-        Vector3 origin = firePoint != null ? firePoint.position : transform.position;
+        Vector3 origin = transform.position;
+        if (firePoint != null)
+        {
+            // flipX는 자식 위치를 뒤집지 않으므로 바라보는 방향에 맞춰 직접 미러링한다.
+            Vector3 offset = firePoint.position - transform.position;
+            offset.x = Mathf.Abs(offset.x) * (IsFacingRight ? 1f : -1f);
+            origin += offset;
+        }
 
         Vector2 dir;
         if (aimAtPlayer)
-            dir = ((Vector2)player.position - (Vector2)origin).normalized;
+            // 플레이어 기준점은 발밑이라 그대로 조준하면 바닥으로 쏜다. 몸 중앙을 노린다.
+            dir = (PlayerCenter - (Vector2)origin).normalized;
         else
-        {
-            bool facingLeft = spriteFacesLeft ? !sr.flipX : sr.flipX;
-            dir = facingLeft ? Vector2.left : Vector2.right;
-        }
+            dir = IsFacingRight ? Vector2.right : Vector2.left;
 
         if (projPool == null)
             projPool = new ObjectPool<Projectile>(projectilePrefab.GetComponent<Projectile>());
         var projComp = projPool.Get(origin, Quaternion.identity);
         projComp.Pool = projPool;
+        projComp.transform.localScale = Vector3.one * projectileScale;
         projComp.Init(dir, projectileSpeed, damage, gameObject, spinSpeed: projectileSpinSpeed);
     }
 
     void Patrol()
     {
+        if (isFlying)
+        {
+            FlyPatrol();
+            return;
+        }
+
         // 발 아래에 바닥이 없으면 즉시 수평 이동 중지 (안전망)
         if (!IsGrounded())
         {
@@ -304,6 +507,11 @@ public class EnemyController : MonoBehaviour, IDamageable
         else if (distFromOrigin <= -patrolDistance)
             patrolDir = 1;
 
+        // 가는 방향이 다른 적에게 막혀 있으면 반대편이 비었을 때만 돌아선다 (양쪽 다 막히면 매 프레임 뒤집히므로).
+        CheckAllies(out bool leftTaken, out bool rightTaken, out _);
+        if (patrolDir < 0 ? leftTaken && !rightTaken : rightTaken && !leftTaken)
+            patrolDir = -patrolDir;
+
         if (IsEdgeAhead(patrolDir))
         {
             patrolDir = -patrolDir;
@@ -312,6 +520,33 @@ public class EnemyController : MonoBehaviour, IDamageable
         }
 
         Move(patrolDir);
+    }
+
+    /// <summary>순찰 중심 위를 좌우로 오가며 살짝 위아래로 떠다닌다.</summary>
+    void FlyPatrol()
+    {
+        float distFromOrigin = transform.position.x - patrolOrigin.x;
+        if (distFromOrigin >= patrolDistance)
+            patrolDir = -1;
+        else if (distFromOrigin <= -patrolDistance)
+            patrolDir = 1;
+
+        if (IsWallAhead(patrolDir))
+            patrolDir = -patrolDir;
+
+        float hoverY = patrolOrigin.y + FlyHoverHeight + Mathf.Sin(Time.time * 2f) * FlyBobAmplitude;
+        float vy = Mathf.Clamp(hoverY - transform.position.y, -1f, 1f);
+        Fly(new Vector2(patrolDir, vy), moveSpeed);
+    }
+
+    bool IsWallAhead(float dir)
+    {
+        if (col == null)
+            return false;
+        Bounds b = col.bounds;
+        return Physics2D
+                .Raycast(b.center, Vector2.right * dir, b.extents.x + 0.3f, groundLayer)
+                .collider != null;
     }
 
     bool IsGrounded()
@@ -341,14 +576,82 @@ public class EnemyController : MonoBehaviour, IDamageable
                 .collider == null;
     }
 
-    void Move(float dir)
+    const float SeparationSpeed = 1.5f;
+    const float SeparationMargin = 0.15f;
+
+    /// <summary>
+    /// 같은 층의 다른 적과의 간격 검사.
+    /// left/rightTaken: 그 방향으로 걸어가면 겹치는지 (여유 간격 포함 — 경계에서 걷기/멈춤이 떨리지 않게).
+    /// push: 이미 겹쳐 있을 때 밀려나야 할 방향과 세기(-1~1).
+    /// </summary>
+    void CheckAllies(out bool leftTaken, out bool rightTaken, out float push)
     {
-        rb.linearVelocity = new Vector2(dir * moveSpeed, rb.linearVelocity.y);
-        animator.SetFloat(HashSpeed, Mathf.Abs(dir));
+        leftTaken = rightTaken = false;
+        push = 0f;
+        if (col == null)
+            return;
+
+        Bounds me = col.bounds;
+        foreach (var other in Instances)
+        {
+            if (other == this || other.isDead || other.col == null)
+                continue;
+            Bounds ob = other.col.bounds;
+            if (Mathf.Abs(me.min.y - ob.min.y) > 0.5f)
+                continue; // 다른 층
+
+            float dx = me.center.x - ob.center.x;
+            float minDist = me.extents.x + ob.extents.x;
+            if (Mathf.Abs(dx) >= minDist + SeparationMargin)
+                continue;
+
+            // 완전히 같은 위치면 인스턴스 ID로 방향을 갈라 서로 반대로 밀리게 한다.
+            float away = Mathf.Abs(dx) > 0.001f
+                ? Mathf.Sign(dx)
+                : (GetInstanceID() > other.GetInstanceID() ? 1f : -1f);
+            if (away > 0f)
+                leftTaken = true;
+            else
+                rightTaken = true;
+            // 겹친 깊이로 가중한다. 방향만 더하면 양옆에 끼인 적은 밀림이 상쇄되어 멈춘다.
+            if (Mathf.Abs(dx) < minDist)
+                push += away * (minDist - Mathf.Abs(dx));
+        }
+        push = Mathf.Clamp(push, -1f, 1f);
+    }
+
+    void Move(float dir) => Move(dir, moveSpeed);
+
+    void Move(float dir, float speed)
+    {
+        CheckAllies(out bool leftTaken, out bool rightTaken, out float push);
+        float vx = (dir < 0f && leftTaken) || (dir > 0f && rightTaken) ? 0f : dir * speed;
+        if (push != 0f && !IsEdgeAhead(push))
+            vx += push * SeparationSpeed;
+
+        rb.linearVelocity = new Vector2(vx, rb.linearVelocity.y);
+        animator.SetFloat(HashSpeed, vx != 0f ? 1f : 0f);
 
         if (dir > 0f)
             SetFacing(true);
         else if (dir < 0f)
+            SetFacing(false);
+    }
+
+    void Fly(Vector2 dir, float speed)
+    {
+        CheckAllies(out _, out _, out float push);
+        Vector2 target = dir * speed + Vector2.right * (push * SeparationSpeed);
+        rb.linearVelocity = Vector2.MoveTowards(
+            rb.linearVelocity,
+            target,
+            FlyAcceleration * Time.deltaTime
+        );
+        animator.SetFloat(HashSpeed, target.sqrMagnitude > 0.01f ? 1f : 0f);
+
+        if (dir.x > 0.1f)
+            SetFacing(true);
+        else if (dir.x < -0.1f)
             SetFacing(false);
     }
 
@@ -378,24 +681,19 @@ public class EnemyController : MonoBehaviour, IDamageable
     async UniTaskVoid ShootAfterDelay(float delay, CancellationToken token)
     {
         await UniTask.Delay(System.TimeSpan.FromSeconds(delay), cancellationToken: token);
-        if (!isDead)
+        // 발사 전에 맞아서 모션이 끊겼으면 쏘지 않는다.
+        if (!isDead && hitStunTimer <= 0f)
             ShootProjectile();
     }
-
-    // ShieldController 등이 등록해서 데미지 차단 여부를 결정
-    public System.Func<bool> isAttackBlocked;
 
     public void TakeDamage(float amount, GameObject attacker = null)
     {
         if (isDead)
             return;
 
-        if (isAttackBlocked != null && isAttackBlocked())
-            return;
-
         hp -= amount;
         healthBar?.SetHealth(hp, maxHp);
-        DamagePopup.Spawn(transform.position + Vector3.up * 0.5f, amount);
+        DamagePopup.Spawn(new Vector3(transform.position.x, FeetY + 0.5f, transform.position.z), amount);
         HitFlash(_cts.Token).Forget();
 
         if (hp <= 0f)
@@ -409,7 +707,18 @@ public class EnemyController : MonoBehaviour, IDamageable
 
         DisableHitbox();
 
+        // 맞으면 공격이 끊기고 잠깐 경직. 쌓여 있던 공격 트리거가 경직 뒤에 뒤늦게 나가지 않게 지운다.
+        animator.ResetTrigger(HashAttack);
         animator.SetTrigger(HashIsHit);
+        hitStunTimer = HitStunDuration;
+        attackGrace = 0f;
+        alertTimer = 0f;
+        lungeTimer = 0f;
+        spawnDelayTimer = 0f;
+        // 등 뒤에서 맞았는데 순찰을 계속하면 어색하다 — 바로 추격 상태로.
+        aggroTimer = AggroMemory;
+        if (isFlying)
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
 
         if (player != null)
             Knockback((transform.position - player.position).normalized, _cts.Token).Forget();

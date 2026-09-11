@@ -292,7 +292,7 @@ MonoBehaviour:
   deathSound: {fileID: 8300000, guid: 72265339aaff48742995e6a979ab6b29, type: 3}
   slamSound: {fileID: 8300000, guid: 08c688208e1aa16418313fc1c6829033, type: 3}
   comboSound: {fileID: 8300000, guid: f8f1fed761395994d96ecc327264d507, type: 3}
-  projectileSound: {fileID: 8300000, guid: 511016029a83f38478bc4b6d45097048, type: 3}
+  projectileSound: {fileID: 8300000, guid: 2e613ef3a69195c43b4bcc08896be9b1, type: 3}
   dashSound: {fileID: 8300000, guid: 3f34edecaa132514fb8b4b06bf21fc6c, type: 3}
   bossDisplayName: King
   bossHealthBarUIPrefab: {fileID: 0}

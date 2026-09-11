@@ -265,7 +265,7 @@ MonoBehaviour:
   damage: 15
   wavePrefab: {fileID: 7915919628461615539, guid: 7cc1028d63a1bd945b0c8a555bab478e, type: 3}
   waveSpeed: 6
-  waveSpawnOffsetY: 1.6
+  waveSpawnOffsetY: 0.96
   leapJumpForce: 18
   leapFallSpeed: 25
   leapRadius: 2

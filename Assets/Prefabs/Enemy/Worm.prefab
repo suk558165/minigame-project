@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.8720001, y: 1.8720001, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5546412685052367543}
@@ -207,7 +207,7 @@ MonoBehaviour:
   moveSpeed: 2
   damage: 8
   detectionRange: 5
-  attackRange: 1.09
+  attackRange: 1.61
   attackCooldown: 1.8
   spawnDelay: 2.5
   groundLayer:
@@ -218,16 +218,17 @@ MonoBehaviour:
   isRanged: 0
   aimAtPlayer: 0
   projectilePrefab: {fileID: 0}
-  firePoint: {fileID: 5546412685052367543}
+  firePoint: {fileID: 0}
   projectileSpeed: 8
+  projectileScale: 1
   safeDistance: 3
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
-  projectileSpinSpeed: 360
+  projectileSpinSpeed: 0
   hpBarOffset: {x: 0, y: -0.6, z: 0}
   knockbackForce: 6
   knockbackDuration: 0.15
-  attackSound: {fileID: 8300000, guid: d936ed9354f06534f83f6296fbab71e6, type: 3}
+  attackSound: {fileID: 8300000, guid: c61655a97fa8748498185306b6e2a7d5, type: 3}
   deathSound: {fileID: 8300000, guid: 72265339aaff48742995e6a979ab6b29, type: 3}
   meleeHitbox: {fileID: 1655130376106437342}
   goldDropPrefab: {fileID: 5989661564655741517, guid: 03b4c7e6075cc50478996617d47a47b3, type: 3}

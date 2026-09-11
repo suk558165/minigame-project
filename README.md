@@ -23,7 +23,13 @@ Unity 6 기반 2D 횡스크롤 로그라이크 액션 게임.
 
 ## 플레이 스크린샷 / 영상
 
-*(삽입 예정)*
+### 타이틀 화면
+
+![타이틀 화면](Docs/images/title.png)
+
+`Title.prefab` — New Game / Continue / Options / Quit. 세이브가 없으면 Continue 는 비활성화됩니다.
+
+*(인게임 스크린샷 삽입 예정)*
 
 ---
 

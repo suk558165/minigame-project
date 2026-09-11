@@ -390,7 +390,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 7009497310840299096}
   m_OnClick:
     m_PersistentCalls:
@@ -1825,7 +1825,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 2592073273729099028}
   m_OnClick:
     m_PersistentCalls:
@@ -2220,7 +2220,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 8150855214575891118}
   m_OnClick:
     m_PersistentCalls:
@@ -3844,7 +3844,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 3194589453243105848}
   m_OnClick:
     m_PersistentCalls:
@@ -5850,7 +5850,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 78392859146668329}
   m_OnClick:
     m_PersistentCalls:
@@ -6519,7 +6519,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 2541430080909705520}
   m_OnClick:
     m_PersistentCalls:
@@ -6640,7 +6640,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 1245416611903593944}
   m_OnClick:
     m_PersistentCalls:
@@ -7101,7 +7101,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uACE8\uB4DC: 1719"
+  m_text: "\uACE8\uB4DC: 54"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d55e1f7e2cb833a4d8aa7db5a1d5dcf5, type: 2}
   m_sharedMaterial: {fileID: 1300427677, guid: d55e1f7e2cb833a4d8aa7db5a1d5dcf5, type: 2}
