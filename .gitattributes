@@ -1,0 +1,58 @@
+# Unity가 생성하는 YAML 에셋은 항상 LF로 기록한다.
+# core.autocrlf=true 환경에서 CRLF로 바뀌면 매번 줄바꿈 경고가 뜨고
+# 에디터가 다시 LF로 저장하면서 불필요한 diff가 생긴다.
+*.prefab    text eol=lf
+*.unity     text eol=lf
+*.asset     text eol=lf
+*.mat       text eol=lf
+*.anim      text eol=lf
+*.controller text eol=lf
+*.overrideController text eol=lf
+*.physicMaterial text eol=lf
+*.physicsMaterial2D text eol=lf
+*.mask      text eol=lf
+*.playable  text eol=lf
+*.signal    text eol=lf
+*.spriteatlas text eol=lf
+*.guiskin   text eol=lf
+*.flare     text eol=lf
+*.fontsettings text eol=lf
+*.lighting  text eol=lf
+*.terrainlayer text eol=lf
+*.shadervariants text eol=lf
+*.meta      text eol=lf
+
+# 소스/설정 파일
+.gitattributes text eol=lf
+.gitignore  text eol=lf
+*.cs        text diff=csharp
+*.shader    text
+*.cginc     text
+*.hlsl      text
+*.json      text
+*.md        text
+*.txt       text
+*.xml       text
+*.yml       text
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.slnx      text eol=crlf
+
+# 바이너리 — 줄바꿈 변환 금지
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.psd       binary
+*.ico       binary
+*.ttf       binary
+*.otf       binary
+*.fbx       binary
+*.blend     binary
+*.wav       binary
+*.mp3       binary
+*.ogg       binary
+*.dll       binary
+*.so        binary
+*.pdb       binary
+*.unitypackage binary
