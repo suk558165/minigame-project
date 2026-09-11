@@ -514,6 +514,12 @@ public class EnemyController : MonoBehaviour, IDamageable
 
         if (IsEdgeAhead(patrolDir))
         {
+            // 양쪽 다 낭떠러지면 돌아설 곳이 없다. 뒤집으면 매 프레임 방향이 반전돼 제자리에서 떨린다.
+            if (IsEdgeAhead(-patrolDir))
+            {
+                Move(0f);
+                return;
+            }
             patrolDir = -patrolDir;
             Move(patrolDir); // 멈추지 않고 즉시 반대로 이동
             return;
@@ -531,7 +537,8 @@ public class EnemyController : MonoBehaviour, IDamageable
         else if (distFromOrigin <= -patrolDistance)
             patrolDir = 1;
 
-        if (IsWallAhead(patrolDir))
+        // 반대편도 막혀 있으면 뒤집지 않는다 — 좁은 통로에 끼었을 때 매 프레임 반전되어 떨리므로.
+        if (IsWallAhead(patrolDir) && !IsWallAhead(-patrolDir))
             patrolDir = -patrolDir;
 
         float hoverY = patrolOrigin.y + FlyHoverHeight + Mathf.Sin(Time.time * 2f) * FlyBobAmplitude;

@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.530989, y: 1.530989, z: 1}
+  m_LocalScale: {x: 1.2973, y: 1.2973, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6857617571038101239}
@@ -208,7 +208,7 @@ MonoBehaviour:
   moveSpeed: 2.5
   damage: 8
   detectionRange: 8
-  attackRange: 3.8274727
+  attackRange: 3.24325
   attackCooldown: 2
   spawnDelay: 2.5
   groundLayer:
@@ -221,8 +221,8 @@ MonoBehaviour:
   projectilePrefab: {fileID: 7145775547899398135, guid: ec24f22582f050242be89ff46466e97a, type: 3}
   firePoint: {fileID: 3903744181935252713}
   projectileSpeed: 8
-  projectileScale: 3.5
-  safeDistance: 4.592967
+  projectileScale: 2.8661
+  safeDistance: 3.8919
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
   projectileSpinSpeed: 0
@@ -269,7 +269,7 @@ Transform:
   m_GameObject: {fileID: 6568375337254695808}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.828883, y: 1.5676142, z: 0}
+  m_LocalPosition: {x: 2.0465, y: 1.0698, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

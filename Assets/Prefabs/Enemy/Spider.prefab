@@ -308,11 +308,13 @@ MonoBehaviour:
     m_Bits: 576
   patrolDistance: 4
   chaseYThreshold: 1.2
+  isFlying: 0
   isRanged: 0
   aimAtPlayer: 0
   projectilePrefab: {fileID: 0}
   firePoint: {fileID: 0}
   projectileSpeed: 8
+  projectileScale: 1
   safeDistance: 3
   rangedCooldownMultiplier: 1.8
   rangedYThreshold: 0.8
