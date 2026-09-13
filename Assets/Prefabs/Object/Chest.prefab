@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 420170441348250911}
   - component: {fileID: 480172350482098075}
   - component: {fileID: 353492548623720665}
-  - component: {fileID: 2717947235159660862}
   - component: {fileID: 7799193634695147943}
   m_Layer: 0
   m_Name: Chest
@@ -60,9 +59,9 @@ MonoBehaviour:
   launchAngleMax: 120
   launchDuration: 0.5
   interactRange: 1.5
+  openSound: {fileID: 8300000, guid: b26a5ac966434a3449a4589964b246fe, type: 3}
   hintObject: {fileID: 5403062130086277630}
   builtinAnimDuration: 0.8
-  openSound: {fileID: 8300000, guid: b26a5ac966434a3449a4589964b246fe, type: 3}
   animatorOpenDuration: 0.5
 --- !u!95 &480172350482098075
 Animator:
@@ -145,32 +144,6 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
---- !u!114 &2717947235159660862
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3457266472583827726}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2e5123acd9a4efd429d1f2c7f00e63bd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TreasureChest
-  goldMin: 20
-  goldMax: 40
-  goldDropPrefab: {fileID: 5989661564655741517, guid: 03b4c7e6075cc50478996617d47a47b3, type: 3}
-  coinCount: 5
-  launchForceMin: 3
-  launchForceMax: 6
-  launchAngleMin: 60
-  launchAngleMax: 120
-  launchDuration: 0.5
-  interactRange: 1.5
-  hintObject: {fileID: 5403062130086277630}
-  builtinAnimDuration: 0.8
-  openSound: {fileID: 8300000, guid: b26a5ac966434a3449a4589964b246fe, type: 3}
-  animatorOpenDuration: 0.5
 --- !u!61 &7799193634695147943
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -251,7 +224,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 310.23453, y: 307.22314}
+  m_AnchoredPosition: {x: 0, y: 1.1}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8934102670724785675

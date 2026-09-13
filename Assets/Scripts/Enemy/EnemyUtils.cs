@@ -7,8 +7,9 @@ public static class EnemyUtils
     {
         if (sr == null)
             return;
-        sr.color = Color.red;
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.1f));
+        // 새빨갛게 칠하면 그림이 통째로 사라져 보여 옅은 붉은빛으로 짧게만 번쩍인다
+        sr.color = new Color(1f, 0.55f, 0.55f);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(0.08f));
         // await 도중 적이 파괴될 수 있다
         if (sr != null && !isDead())
             sr.color = originalColor;

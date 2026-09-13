@@ -32,20 +32,11 @@ public partial class BossController : MonoBehaviour, IDamageable
     [SerializeField]
     private float phase2CooldownMult = 0.3f;
 
-    [Header("돌진 패턴")]
-    [SerializeField]
-    private float chargeSpeed = 12f;
-
-    [SerializeField]
-    private float chargeDuration = 0.5f;
-
+    [Header("순간이동 베기 패턴")]
     [SerializeField]
     private float chargeStunDuration = 0.5f;
 
     [Header("내려찍기 패턴")]
-    [SerializeField]
-    private float slamJumpForce = 15f;
-
     [SerializeField]
     private float slamFallSpeed = 20f;
 
@@ -146,6 +137,12 @@ public partial class BossController : MonoBehaviour, IDamageable
 
     // animator.Play 중복 호출 방지용 현재 상태 이름 (PlayState 참고)
     private string currentState;
+
+    // 피격 경직: 패턴 중이 아닐 때만 짧게 멈칫한다. 연타에 계속 묶이지 않도록 간격을 둔다.
+    const float StaggerDuration = 0.2f;
+    const float StaggerCooldown = 0.8f;
+    private float staggerTimer;
+    private float lastStaggerTime = -10f;
 
     private CancellationTokenSource _cts = new();
 
@@ -265,6 +262,13 @@ public partial class BossController : MonoBehaviour, IDamageable
         if (isActing)
             return;
 
+        // 경직 중에는 추격 속도가 넉백을 덮어쓰지 않도록 아무것도 하지 않는다
+        if (staggerTimer > 0f)
+        {
+            staggerTimer -= Time.deltaTime;
+            return;
+        }
+
         FlipToPlayer();
 
         cooldownTimer -= Time.deltaTime;
@@ -307,14 +311,23 @@ public partial class BossController : MonoBehaviour, IDamageable
 
     // animator.Play 를 매 프레임 호출하면 클립이 0프레임에서 계속 리셋되므로 상태가 바뀔 때만 호출한다.
     // 공격 동작은 같은 상태를 다시 처음부터 재생해야 하므로 restart 로 강제한다.
-    void PlayState(string state, bool restart = false)
+    void PlayState(string state, bool restart = false, float normalizedTime = 0f)
     {
         if (animator == null)
             return;
         if (!restart && currentState == state)
             return;
         currentState = state;
-        animator.Play(state, 0, 0f);
+        animator.speed = 1f; // FreezePose 로 멈춘 재생을 되돌린다
+        animator.Play(state, 0, normalizedTime);
+    }
+
+    // 공중 급강하처럼 한 프레임 자세를 유지해야 할 때 사용 (다음 PlayState 에서 재생 재개)
+    void FreezePose(string state, float normalizedTime)
+    {
+        PlayState(state, true, normalizedTime);
+        if (animator != null)
+            animator.speed = 0f;
     }
 
     // ── 패턴 선택 (실제 패턴 구현은 BossController.Patterns.cs) ──
@@ -416,8 +429,13 @@ public partial class BossController : MonoBehaviour, IDamageable
 
         HitFlash().Forget();
 
-        if (!isActing && player != null)
+        if (!isActing && player != null && Time.time - lastStaggerTime >= StaggerCooldown)
+        {
+            lastStaggerTime = Time.time;
+            staggerTimer = StaggerDuration;
+            PlayState("Hit", true);
             Knockback((transform.position - player.position).normalized, _cts.Token).Forget();
+        }
     }
 
     UniTask HitFlash() => EnemyUtils.HitFlash(sr, baseColor, () => isDead);

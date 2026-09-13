@@ -9,7 +9,20 @@ public partial class BossController
     // Boss_DeathAngelController 클립 길이 (12fps). 패턴 타이밍을 애니메이션에 맞추는 기준.
     const float ClipSlam = 0.667f;   // cast_1~8
     const float ClipCharge = 0.5f;   // ready_teleport_1~6
+    const float ClipDash = 0.833f;   // attack_teleport_1~10
     const float ClipCombo = 0.583f;  // attack_1~7
+
+    // 순간이동 베기 프레임 시점
+    const float VanishTime = 0.417f; // ready_teleport_6: 완전히 흩어진 프레임
+    const float ReformTime = 0.25f;  // attack_teleport_4: 몸이 다시 모인 프레임
+    const float SlashTime = 0.5f;    // attack_teleport_7: 큰 낫 궤적 프레임
+    const float TeleportGap = 1f;    // 다시 나타날 때 플레이어와의 거리 (comboRange 안쪽)
+
+    // 내려찍기
+    const float SlamRaisePose = 0.25f; // cast_4: 낫을 치켜든 프레임 — 급강하 자세
+    const float SlamRiseHeight = 6f;
+    const float SlamRiseTime = 0.45f;
+    const float SlamHangTime = 0.15f;
 
     // ── 텔 (예고 연출) ──
 
@@ -18,75 +31,63 @@ public partial class BossController
 
     UniTask TellShake() => EnemyUtils.TellShake(transform, tellDuration);
 
-    // ── 패턴: 돌진 공격 (돌진 후 베기) ──
+    // ── 패턴: 순간이동 베기 ──
+    // 그림이 돌진이 아니라 '흩어졌다가 다시 나타나 베는' 동작이다 (ready_teleport → attack_teleport).
+    // 흩어지는 동작과 다시 모이는 동작이 예고 역할을 하므로 별도 깜빡임은 두지 않는다.
 
     async UniTask ChargeAttack(CancellationToken token)
     {
-        await TellFlash(Color.red);
-
-        attackFlip = true;
         FlipToPlayer();
         AudioManager.Instance?.PlaySFX(dashSound);
-        PlayState("DashRun", true);
+        PlayState("Charge", true);
 
-        float dir = player.position.x > transform.position.x ? 1f : -1f;
-        float elapsed = 0f;
+        await UniTask.Delay(System.TimeSpan.FromSeconds(VanishTime), cancellationToken: token);
+        untargetable = true; // 흩어져 보이지 않는 동안은 맞지 않는다
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipCharge - VanishTime), cancellationToken: token);
 
-        // 이미 사거리 안이면 돌진 모션이 1프레임만 보이고 끊기므로 최소 재생 시간을 준다.
-        const float minDashRun = 0.2f;
-
-        // 돌진: 플레이어 근처까지 이동 (데미지 없음)
-        while (elapsed < chargeDuration)
+        // 플레이어 옆(원래 있던 쪽)에 나타난다. 사이에 벽이 있으면 벽 앞까지만.
+        float side = transform.position.x < player.position.x ? -1f : 1f;
+        float targetX = player.position.x + side * TeleportGap;
+        float dx = targetX - transform.position.x;
+        if (col != null && Mathf.Abs(dx) > 0.01f)
         {
-            transform.position += new Vector3(dir * chargeSpeed * Time.deltaTime, 0f, 0f);
-
-            if (elapsed >= minDashRun
-                && Vector2.Distance(transform.position, player.position) <= comboRange)
-                break;
-
-            elapsed += Time.deltaTime;
-            await UniTask.Yield(token);
+            float dir = Mathf.Sign(dx);
+            float halfWidth = col.bounds.extents.x;
+            var wall = Physics2D.Raycast(col.bounds.center, new Vector2(dir, 0f), Mathf.Abs(dx) + halfWidth, groundLayer);
+            if (wall.collider != null)
+                targetX = wall.point.x - dir * (halfWidth + 0.05f);
         }
+        transform.position = new Vector3(targetX, transform.position.y, transform.position.z);
 
-        // 도착 후 베기
-        rb.linearVelocity = Vector2.zero;
         FlipToPlayer();
         PlayState("Dash", true);
 
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ReformTime), cancellationToken: token);
+        untargetable = false;
+        await UniTask.Delay(System.TimeSpan.FromSeconds(SlashTime - ReformTime), cancellationToken: token);
         DealAreaDamage(transform.position, comboRange);
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.15f), cancellationToken: token);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipDash - SlashTime), cancellationToken: token);
 
         // 스턴 (반격 타이밍)
+        PlayState("Idle");
         baseColor = Color.gray;
         sr.color = baseColor;
         await UniTask.Delay(System.TimeSpan.FromSeconds(chargeStunDuration), cancellationToken: token);
         baseColor = originalColor;
         sr.color = baseColor;
-
-        attackFlip = false;
     }
 
     // ── 패턴: 내려찍기 ──
+    // 지상에서 시전 → 플레이어 머리 위로 곡선 도약 → 정점에서 자세 고정 → 급강하 → 착지 베기
 
     async UniTask SlamAttack(CancellationToken token)
     {
         await TellShake();
 
+        // 떠오르면서 시전하면 동작이 공중에서 뭉개지므로 지상에서 끝까지 재생한다.
+        FlipToPlayer();
         PlayState("Slam", true);
-
-        // 점프
-        rb.linearVelocity = new Vector2(0f, slamJumpForce);
-
-        // 점프 후 실제로 지면을 벗어날 때까지 대기
-        float liftWait = 0f;
-        while (IsGrounded() && liftWait < 0.3f)
-        {
-            liftWait += Time.deltaTime;
-            await UniTask.Yield(token);
-        }
-
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipSlam), cancellationToken: token);
 
         // 경고 표시 (바닥 전체 — 항상 지면 높이)
         float floorY = EnemyUtils.FindFloorY(player.position, groundLayer);
@@ -98,16 +99,28 @@ public partial class BossController
             warning.transform.localScale = new Vector3(100f, 0.3f, 1f);
         }
 
-        // 시전(Slam) 클립을 끝까지 재생한 뒤 급강하로 넘어가도록 남은 시간만큼 대기.
-        // 여기까지 Slam 재생 후 경과 시간: 이륙 대기(liftWait) + 0.2
-        await UniTask.Delay(
-            System.TimeSpan.FromSeconds(Mathf.Max(0.15f, ClipSlam - liftWait - 0.2f)),
-            cancellationToken: token
-        );
-
-        // 급강하 — 시전이 끝났으므로 비행 루프로 전환 (마지막 프레임 고정 방지)
+        // 정점까지 곡선 이동 (정점에서 옆으로 순간이동하던 문제)
+        rb.linearVelocity = Vector2.zero;
+        rb.bodyType = RigidbodyType2D.Kinematic;
         PlayState("Fly", true);
-        rb.MovePosition(new Vector2(targetPos.x, rb.position.y));
+        Vector3 start = transform.position;
+        float t = 0f;
+        while (t < SlamRiseTime)
+        {
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / SlamRiseTime);
+            float x = Mathf.Lerp(start.x, targetPos.x, Mathf.SmoothStep(0f, 1f, k));
+            float y = start.y + SlamRiseHeight * (1f - (1f - k) * (1f - k)); // 정점에 가까울수록 감속
+            transform.position = new Vector3(x, y, start.z);
+            await UniTask.Yield(token);
+        }
+
+        // 정점: 낫을 치켜든 자세로 잠깐 멈췄다가 급강하
+        FlipToPlayer();
+        FreezePose("Slam", SlamRaisePose / ClipSlam);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(SlamHangTime), cancellationToken: token);
+
+        rb.bodyType = RigidbodyType2D.Dynamic;
         rb.linearVelocity = new Vector2(0f, -slamFallSpeed);
 
         float fallTimeout = 3f;
@@ -126,9 +139,11 @@ public partial class BossController
         // 착지 데미지
         AudioManager.Instance?.PlaySFX(slamSound);
         SlamGroundDamage();
+        CameraFollow.Instance?.Shake(0.2f, 0.3f);
 
-        PlayState("Idle"); // 착지했으므로 비행 루프를 끊는다
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.25f), cancellationToken: token);
+        // 착지 순간 낫 궤적 프레임부터 재생 (충격 자세 없이 바로 대기로 넘어가던 문제)
+        PlayState("Dash", true, SlashTime / ClipDash);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipDash - SlashTime + 0.1f), cancellationToken: token);
     }
 
     // ── 패턴: 투사체 ──
@@ -191,7 +206,7 @@ public partial class BossController
 
     async UniTask SpikeStormAttack(CancellationToken token)
     {
-        await GoAirborne(4f, 0.4f, token);
+        await GoAirborne(4f, 0.5f, token);
 
         const float spacing = 1.4f;
         const float halfSpan = 7f;
@@ -232,14 +247,14 @@ public partial class BossController
             await UniTask.Delay(System.TimeSpan.FromSeconds(0.7f), cancellationToken: token);
         }
 
-        await ReturnFromAir(0.4f, token);
+        await ReturnFromAir(0.5f, token);
     }
 
     // ── Phase 2 패턴: 공중 마법 (플레이어 추적 낙하) ──
 
     async UniTask AirMagicAttack(CancellationToken token)
     {
-        await GoAirborne(4f, 0.4f, token);
+        await GoAirborne(4f, 0.5f, token);
 
         const int count = 5;
         const float spawnInterval = 0.5f;
@@ -265,7 +280,7 @@ public partial class BossController
         }
 
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.5f), cancellationToken: token);
-        await ReturnFromAir(0.4f, token);
+        await ReturnFromAir(0.5f, token);
     }
 
     Projectile GetPooledMagic(Vector3 pos)
@@ -303,7 +318,7 @@ public partial class BossController
         {
             t += Time.deltaTime;
             float k = Mathf.Clamp01(t / duration);
-            transform.position = Vector3.Lerp(start, target, k);
+            transform.position = Vector3.Lerp(start, target, Mathf.SmoothStep(0f, 1f, k)); // 출발·도착 감속
             await UniTask.Yield(token);
         }
         transform.position = target;
@@ -341,7 +356,7 @@ public partial class BossController
         {
             t += Time.deltaTime;
             float k = Mathf.Clamp01(t / duration);
-            transform.position = Vector3.Lerp(start, preAirbornePos, k);
+            transform.position = Vector3.Lerp(start, preAirbornePos, Mathf.SmoothStep(0f, 1f, k));
             await UniTask.Yield(token);
         }
         transform.position = preAirbornePos;
@@ -349,6 +364,10 @@ public partial class BossController
         if (col != null)
             col.enabled = true;
         untargetable = false;
+
+        // 착지 직후 비행 루프를 끊고 잠깐 멈춘다
+        PlayState("Idle");
+        await UniTask.Delay(System.TimeSpan.FromSeconds(0.15f), cancellationToken: token);
     }
 
     // ── 패턴: 연속 베기 ──

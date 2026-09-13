@@ -338,7 +338,23 @@ public class RoomManager : MonoBehaviour
         if (spawnPoint == null)
             return;
 
-        Instantiate(chestPrefab, spawnPoint.transform.position, Quaternion.identity);
+        var chest = Instantiate(chestPrefab, spawnPoint.transform.position, Quaternion.identity);
+
+        // 스폰 지점이 지면에서 떠 있는 방이 있다(MiniBossMap 4.6칸, map7 1.3칸).
+        // 상자는 Rigidbody 가 없어 놓인 자리에 그대로 멈추므로 공중에 뜬 채 남는다.
+        // 콜라이더 바닥면이 지면에 닿도록 내려 붙인다.
+        var col = chest.GetComponent<Collider2D>();
+        if (col == null)
+            return;
+
+        var hit = Physics2D.Raycast(
+            chest.transform.position,
+            Vector2.down,
+            30f,
+            LayerMask.GetMask("Ground", "Platform")
+        );
+        if (hit.collider != null)
+            chest.transform.position += new Vector3(0f, hit.point.y - col.bounds.min.y, 0f);
     }
 
     public void GoToNextRoom()

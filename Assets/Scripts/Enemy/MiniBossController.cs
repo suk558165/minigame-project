@@ -36,9 +36,6 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     [Header("도약 베기")]
     [SerializeField]
-    private float leapJumpForce = 18f;
-
-    [SerializeField]
     private float leapFallSpeed = 25f;
 
     [SerializeField]
@@ -114,6 +111,25 @@ public class MiniBossController : MonoBehaviour, IDamageable
     // MiniBoss_SkeletonKingController 클립 길이 (12fps). 패턴 타이밍을 애니메이션에 맞추는 기준.
     const float ClipGroundWave = 0.667f;  // cast_1~8
     const float ClipLeapSlash = 0.583f;   // attack1_1~7
+    const float ClipMultiDash = 0.583f;   // attack2_1~7
+
+    // 도약 베기
+    const float LeapAirPose = 0.167f;     // attack1_3: 칼을 뒤로 뺀 프레임 — 급강하 자세
+    const float LeapSlashHit = 0.25f;     // attack1_4: 큰 베기 궤적 프레임
+    const float LeapRiseHeight = 4f;
+    const float LeapRiseTime = 0.4f;
+    const float LeapHangTime = 0.1f;
+
+    // 연속 돌진: 찌르기 이펙트(attack2_4)가 나오기 전까지의 준비 동작 길이
+    const float DashWindup = 0.25f;
+
+    // 피격 경직: 패턴 중이 아닐 때만 짧게 멈칫한다. 연타에 계속 묶이지 않도록 간격을 둔다.
+    const float StaggerDuration = 0.2f;
+    const float StaggerCooldown = 0.8f;
+    const float StaggerKnockSpeed = 3f;
+    private float staggerTimer;
+    private float staggerDirX;
+    private float lastStaggerTime = -10f;
 
     private float hp;
     private bool isDead;
@@ -178,10 +194,20 @@ public class MiniBossController : MonoBehaviour, IDamageable
         if (Vector2.Distance(transform.position, player.position) > detectionRange)
             return;
 
-        FlipToPlayer();
-
+        // 패턴 중에는 패턴이 직접 방향을 정한다 (돌진 도중 플레이어를 지나치며 뒤집히던 문제)
         if (isActing)
             return;
+
+        // 경직: 밀려나며 감속. 추격 속도가 덮어쓰지 않도록 여기서 반환한다.
+        if (staggerTimer > 0f)
+        {
+            staggerTimer -= Time.deltaTime;
+            float k = Mathf.Max(0f, staggerTimer / StaggerDuration);
+            rb.linearVelocity = new Vector2(staggerDirX * StaggerKnockSpeed * k, rb.linearVelocity.y);
+            return;
+        }
+
+        FlipToPlayer();
 
         cooldownTimer -= Time.deltaTime;
         if (cooldownTimer <= 0f)
@@ -212,14 +238,23 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     // animator.Play 를 매 프레임 호출하면 클립이 0프레임에서 계속 리셋되므로 상태가 바뀔 때만 호출한다.
     // 공격 동작은 같은 상태를 다시 처음부터 재생해야 하므로 restart 로 강제한다.
-    void PlayState(string state, bool restart = false)
+    void PlayState(string state, bool restart = false, float normalizedTime = 0f)
     {
         if (animator == null)
             return;
         if (!restart && currentState == state)
             return;
         currentState = state;
-        animator.Play(state, 0, 0f);
+        animator.speed = 1f; // FreezePose 로 멈춘 재생을 되돌린다
+        animator.Play(state, 0, normalizedTime);
+    }
+
+    // 공중 급강하처럼 한 프레임 자세를 유지해야 할 때 사용 (다음 PlayState 에서 재생 재개)
+    void FreezePose(string state, float normalizedTime)
+    {
+        PlayState(state, true, normalizedTime);
+        if (animator != null)
+            animator.speed = 0f;
     }
 
     bool IsWallAhead(float direction)
@@ -309,24 +344,38 @@ public class MiniBossController : MonoBehaviour, IDamageable
     }
 
     // ── 패턴 2: 도약 베기 ─────────────────────────────
-    // 점프 후 플레이어 위치로 낙하, 착지 충격파
+    // 플레이어 머리 위로 곡선 도약 → 정점에서 자세 고정 → 급강하 → 착지 베기
 
     async UniTask LeapSlash(CancellationToken token)
     {
         await TellFlash(Color.yellow);
 
+        FlipToPlayer();
         AudioManager.Instance?.PlaySFX(leapSlashSound);
-        PlayState("Jump", true); // 공중 구간은 점프 루프 (베기는 착지 시점에)
-        rb.linearVelocity = new Vector2(0f, leapJumpForce);
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
+        PlayState("Jump", true);
 
-        // 플레이어 X로 이동 후 급낙하
-        if (player != null)
+        // 곡선으로 플레이어 위까지 이동 (0.2초 상승 후 옆으로 순간이동하던 문제)
+        float targetX = player != null ? player.position.x : transform.position.x;
+        rb.linearVelocity = Vector2.zero;
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        Vector3 start = transform.position;
+        float t = 0f;
+        while (t < LeapRiseTime)
         {
-            Vector3 p = transform.position;
-            p.x = player.position.x;
-            transform.position = p;
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / LeapRiseTime);
+            float x = Mathf.Lerp(start.x, targetX, Mathf.SmoothStep(0f, 1f, k));
+            float y = start.y + LeapRiseHeight * (1f - (1f - k) * (1f - k)); // 정점에 가까울수록 감속
+            transform.position = new Vector3(x, y, start.z);
+            await UniTask.Yield(token);
         }
+
+        // 정점: 칼을 뒤로 뺀 자세로 잠깐 멈췄다가 급강하
+        FlipToPlayer();
+        FreezePose("LeapSlash", LeapAirPose / ClipLeapSlash);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(LeapHangTime), cancellationToken: token);
+
+        rb.bodyType = RigidbodyType2D.Dynamic;
 
         // 착지하지 못하는 위치(맵 밖 등)에서 무한 대기하지 않도록 타임아웃을 둔다.
         float fallElapsed = 0f;
@@ -339,23 +388,29 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
         rb.linearVelocity = Vector2.zero;
 
+        // 착지 순간 베기 궤적 프레임부터 재생
         // 착지 충격 — IgnoreLayerCollision으로 트리거가 막히므로 직접 거리 계산
-        PlayState("LeapSlash", true);
+        FlipToPlayer();
+        PlayState("LeapSlash", true, LeapSlashHit / ClipLeapSlash);
         DealAreaDamage(transform.position, leapRadius);
+        CameraFollow.Instance?.Shake(0.15f, 0.15f);
 
-        // 베기 클립 완주 (0.2s 에서 잘려 마지막 프레임이 굳던 문제)
-        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipLeapSlash), cancellationToken: token);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipLeapSlash - LeapSlashHit + 0.1f), cancellationToken: token);
     }
 
     // ── 패턴 3: 연속 돌진 ─────────────────────────────
-    // 짧은 대시를 dashCount 회 반복, 마지막에 짧은 스턴
+    // 준비 동작 → 찌르기 이펙트 구간에 맞춰 이동, dashCount 회 반복, 마지막에 짧은 스턴
 
     async UniTask MultiDash(CancellationToken token)
     {
-        await TellFlash(Color.cyan);
+        // 예고 깜빡임이 끝나는 순간 첫 찌르기 이펙트가 나오도록, 끝나기 DashWindup 전에 준비 동작을 시작한다.
+        var tell = TellFlash(Color.cyan);
+        await UniTask.Delay(System.TimeSpan.FromSeconds(Mathf.Max(0f, tellDuration - DashWindup)), cancellationToken: token);
+        FlipToPlayer();
+        PlayState("MultiDash", true);
+        await tell;
 
         AudioManager.Instance?.PlaySFX(dashSound);
-        PlayState("MultiDash", true); // 진입 동작(attack2) → 이후 attack2_loop 으로 연결
         bool prevRootMotion = animator != null && animator.applyRootMotion;
         if (animator != null)
             animator.applyRootMotion = false;
@@ -365,13 +420,19 @@ public class MiniBossController : MonoBehaviour, IDamageable
             if (player == null)
                 break;
 
-            FlipToPlayer();
-            float dir = player.position.x > transform.position.x ? 1f : -1f;
-            dashHitThisSegment = false;
-
-            // 2번째 돌진부터는 루프 클립으로 유지 (마지막 프레임 고정 방지)
             if (i > 0)
-                PlayState("DashLoop");
+            {
+                // 멈춘 동안: 앞부분은 찌르기 후 회수 동작(이후 Idle), 마지막 DashWindup 은 다음 준비 동작
+                float windup = Mathf.Min(DashWindup, dashInterval);
+                await UniTask.Delay(System.TimeSpan.FromSeconds(dashInterval - windup), cancellationToken: token);
+                FlipToPlayer();
+                PlayState("MultiDash", true, (DashWindup - windup) / ClipMultiDash);
+                await UniTask.Delay(System.TimeSpan.FromSeconds(windup), cancellationToken: token);
+            }
+
+            // 준비 동작에서 정한 방향으로 고정한다
+            float dir = sr.flipX ? -1f : 1f;
+            dashHitThisSegment = false;
 
             float elapsed = 0f;
             while (elapsed < dashDuration)
@@ -386,9 +447,6 @@ public class MiniBossController : MonoBehaviour, IDamageable
             }
 
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-
-            if (i < dashCount - 1)
-                await UniTask.Delay(System.TimeSpan.FromSeconds(dashInterval), cancellationToken: token);
         }
 
         if (animator != null)
@@ -454,6 +512,14 @@ public class MiniBossController : MonoBehaviour, IDamageable
         }
 
         HitFlash().Forget();
+
+        if (!isActing && player != null && Time.time - lastStaggerTime >= StaggerCooldown)
+        {
+            lastStaggerTime = Time.time;
+            staggerTimer = StaggerDuration;
+            staggerDirX = transform.position.x >= player.position.x ? 1f : -1f;
+            PlayState("Hit", true);
+        }
     }
 
     UniTask HitFlash() => EnemyUtils.HitFlash(sr, baseColor, () => isDead);
