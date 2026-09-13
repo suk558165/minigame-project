@@ -110,7 +110,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0.2, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.15, y: 1.15, z: 1.15}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2200330044001100664}
@@ -265,16 +265,16 @@ MonoBehaviour:
   damage: 15
   wavePrefab: {fileID: 7915919628461615539, guid: 7cc1028d63a1bd945b0c8a555bab478e, type: 3}
   waveSpeed: 6
-  waveSpawnOffsetY: 0.96
+  waveSpawnOffsetY: 1.1
   leapJumpForce: 18
   leapFallSpeed: 25
-  leapRadius: 2
+  leapRadius: 2.3
   meleeHitbox: {fileID: 3300440055001100775}
   dashCount: 3
   dashSpeed: 14
   dashDuration: 0.25
   dashInterval: 0.3
-  dashHitRadius: 1.3
+  dashHitRadius: 1.5
   patternCooldown: 2.5
   tellDuration: 0.5
   detectionRange: 12
