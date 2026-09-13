@@ -17,61 +17,81 @@ public class CameraFollow : MonoBehaviour
 
     [Header("따라가는 속도")]
     [Tooltip("가로 추적 부드러움. 작을수록 빠릿")]
-    public float horizontalSmoothTime = 0.18f;
+    [SerializeField]
+    private float horizontalSmoothTime = 0.18f;
 
     [Tooltip("세로 추적 부드러움. 가로보다 느려야 점프 시 안정적으로 보인다")]
-    public float verticalSmoothTime = 0.32f;
+    [SerializeField]
+    private float verticalSmoothTime = 0.32f;
 
     [Header("데드존 (이 범위 안에서는 카메라가 안 움직임)")]
     [Tooltip("가로 데드존 폭(월드 유닛). 0이면 항상 따라감")]
-    public float deadzoneWidth = 2.4f;
+    [SerializeField]
+    private float deadzoneWidth = 2.4f;
 
     [Tooltip("세로 데드존 높이(월드 유닛). 점프 높이보다 살짝 크게 잡으면 출렁임이 사라진다")]
-    public float deadzoneHeight = 3.2f;
+    [SerializeField]
+    private float deadzoneHeight = 3.2f;
 
     [Header("세로 추적 방식")]
     [Tooltip("켜면 접지했을 때만 세로 목표를 갱신한다 (스컬·던그리드 방식)")]
-    public bool followGroundedYOnly = true;
+    [SerializeField]
+    private bool followGroundedYOnly = true;
 
     [Header("Offset")]
     [Tooltip("플레이어 기준 카메라 가로 오프셋. 보통 0")]
-    public float horizontalOffset = 0f;
+    [SerializeField]
+    private float horizontalOffset = 0f;
 
     [Tooltip("플레이어보다 위를 보는 정도. 양수면 플레이어가 화면 아래쪽에 위치")]
-    public float verticalOffset = 1.2f;
+    [SerializeField]
+    private float verticalOffset = 1.2f;
 
     [Header("Lookahead")]
     [Tooltip("바라보는 방향으로 미리 보는 거리")]
-    public float lookAheadDistance = 2.2f;
+    [SerializeField]
+    private float lookAheadDistance = 2.2f;
 
     [Tooltip("룩어헤드 전환 속도")]
-    public float lookAheadSpeed = 2.5f;
+    [SerializeField]
+    private float lookAheadSpeed = 2.5f;
 
     [Header("Camera")]
-    public float orthographicSize = 6f;
-    public float cameraZ = -10f;
+    [SerializeField]
+    private float orthographicSize = 6f;
+    [SerializeField]
+    private float cameraZ = -10f;
 
     [Header("Bounds")]
     [Tooltip("방 경계 밖이 보이지 않도록 클램프")]
-    public bool useBounds = false;
+    [SerializeField]
+    private bool useBounds = false;
 
     [Tooltip("CameraBounds 폴리곤이 없는 방에서 타일맵으로 경계를 자동 추정")]
-    public bool autoDetectBoundsFromTilemap = true;
+    [SerializeField]
+    private bool autoDetectBoundsFromTilemap = true;
 
     [Tooltip("경계를 안쪽으로 더 좁힘. 타일 가장자리 틈이 보일 때 올린다")]
-    public float boundsPadding = 0f;
+    [SerializeField]
+    private float boundsPadding = 0f;
 
-    public float minX = -100f;
-    public float maxX = 100f;
-    public float minY = -100f;
-    public float maxY = 100f;
+    [SerializeField]
+    private float minX = -100f;
+    [SerializeField]
+    private float maxX = 100f;
+    [SerializeField]
+    private float minY = -100f;
+    [SerializeField]
+    private float maxY = 100f;
 
     [Header("Shake")]
     [Tooltip("피격 등에서 흔들리는 기본 세기")]
-    public float shakeMagnitude = 0.25f;
+    [SerializeField]
+    private float shakeMagnitude = 0.25f;
 
     [Tooltip("기본 지속 시간(초)")]
-    public float shakeDuration = 0.18f;
+    [SerializeField]
+    private float shakeDuration = 0.18f;
 
     private float _velX,
         _velY;

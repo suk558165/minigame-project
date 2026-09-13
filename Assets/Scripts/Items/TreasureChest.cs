@@ -12,33 +12,47 @@ public class TreasureChest : MonoBehaviour
     static void ResetStatics() => Instances.Clear();
 
     [Header("Reward")]
-    public int goldMin = 20;
-    public int goldMax = 40;
-    public GameObject goldDropPrefab;
+    [SerializeField]
+    private int goldMin = 20;
+    [SerializeField]
+    private int goldMax = 40;
+    [SerializeField]
+    private GameObject goldDropPrefab;
 
     [Header("Launch")]
-    public int coinCount = 5;
-    public float launchForceMin = 3f;
-    public float launchForceMax = 6f;
-    public float launchAngleMin = 60f;
-    public float launchAngleMax = 120f;
-    public float launchDuration = 0.5f;
+    [SerializeField]
+    private int coinCount = 5;
+    [SerializeField]
+    private float launchForceMin = 3f;
+    [SerializeField]
+    private float launchForceMax = 6f;
+    [SerializeField]
+    private float launchAngleMin = 60f;
+    [SerializeField]
+    private float launchAngleMax = 120f;
+    [SerializeField]
+    private float launchDuration = 0.5f;
 
     [Header("Interaction")]
-    public float interactRange = 1.5f;
+    [SerializeField]
+    private float interactRange = 1.5f;
 
     [Header("Audio")]
-    public AudioClip openSound;
+    [SerializeField]
+    private AudioClip openSound;
 
     [Header("UI")]
-    public GameObject hintObject;
+    [SerializeField]
+    private GameObject hintObject;
 
     [Header("Animation")]
     // Animator가 없을 때 사용되는 코드 애니메이션 총 재생 시간
-    public float builtinAnimDuration = 0.8f;
+    [SerializeField]
+    private float builtinAnimDuration = 0.8f;
 
     // Animator가 있을 때 Open 트리거 후 대기 시간 (애니메이션 클립 길이에 맞게 설정)
-    public float animatorOpenDuration = 0.5f;
+    [SerializeField]
+    private float animatorOpenDuration = 0.5f;
 
     private bool opened;
     private Transform player;
@@ -198,7 +212,6 @@ public class TreasureChest : MonoBehaviour
         int perCoin = Mathf.Max(1, totalGold / coinCount);
         int remainder = totalGold - perCoin * coinCount;
 
-        float floorY = transform.position.y;
         Vector3 spawnPos = transform.position + Vector3.up * 0.3f;
 
         for (int i = 0; i < coinCount; i++)
@@ -215,7 +228,7 @@ public class TreasureChest : MonoBehaviour
             float rad = angle * Mathf.Deg2Rad;
             var dir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
 
-            wg.Launch(dir * force, floorY);
+            wg.Launch(dir * force);
         }
     }
 

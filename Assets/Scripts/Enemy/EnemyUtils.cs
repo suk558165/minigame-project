@@ -146,7 +146,7 @@ public static class EnemyUtils
     }
 
     public static void SpawnGoldDrops(
-        GameObject prefab, Vector3 pos, LayerMask groundLayer,
+        GameObject prefab, Vector3 pos,
         int count, int minGold, int maxGold,
         // 각도가 45도에 가까울수록 옆으로 멀리 날아간다. 수직에 가깝게 두어
         // 죽은 자리 근처에 떨어지게 한다. (force 6 기준 수평 0.9칸 이내)
@@ -156,7 +156,6 @@ public static class EnemyUtils
             return;
 
         Vector3 spawnPos = pos + Vector3.up * 0.3f;
-        float floorY = FindFloorY(pos, groundLayer);
 
         for (int i = 0; i < count; i++)
         {
@@ -167,7 +166,7 @@ public static class EnemyUtils
                 worldGold.amount = Random.Range(minGold, maxGold + 1);
                 float angle = Random.Range(minAngle, maxAngle) * Mathf.Deg2Rad;
                 float force = Random.Range(3f, 6f);
-                worldGold.Launch(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * force, floorY);
+                worldGold.Launch(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * force);
             }
         }
     }

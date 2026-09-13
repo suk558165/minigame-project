@@ -94,11 +94,10 @@ public partial class EnemyController
 
     void SpawnDrops()
     {
-        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, groundLayer, 1, goldDropMin, goldDropMax);
+        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, 1, goldDropMin, goldDropMax);
 
         if (potionDropPrefab != null && Random.value < potionDropChance + MetaUpgrades.PotionDropBonus)
         {
-            float floorY = EnemyUtils.FindFloorY(transform.position, groundLayer);
             Vector3 pos = transform.position + Vector3.up * 0.3f;
             var potion = Instantiate(potionDropPrefab, pos, Quaternion.identity);
             var worldPotion = potion.GetComponent<WorldPotion>();
@@ -107,7 +106,7 @@ public partial class EnemyController
                 worldPotion.healAmount = potionHealAmount;
                 float angle = Random.Range(70f, 110f) * Mathf.Deg2Rad;
                 float force = Random.Range(3f, 5f);
-                worldPotion.Launch(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * force, floorY);
+                worldPotion.Launch(new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * force);
             }
         }
     }

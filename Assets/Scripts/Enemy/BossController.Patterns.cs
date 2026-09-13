@@ -24,13 +24,6 @@ public partial class BossController
     const float SlamRiseTime = 0.45f;
     const float SlamHangTime = 0.15f;
 
-    // ── 텔 (예고 연출) ──
-
-    UniTask TellFlash(Color color) =>
-        EnemyUtils.TellFlash(sr, color, originalColor, tellDuration);
-
-    UniTask TellShake() => EnemyUtils.TellShake(transform, tellDuration);
-
     // ── 패턴: 순간이동 베기 ──
     // 그림이 돌진이 아니라 '흩어졌다가 다시 나타나 베는' 동작이다 (ready_teleport → attack_teleport).
     // 흩어지는 동작과 다시 모이는 동작이 예고 역할을 하므로 별도 깜빡임은 두지 않는다.
@@ -399,6 +392,4 @@ public partial class BossController
         if (PlayerRef.Controller != null)
             PlayerRef.Controller.Knockback(Vector2.up * 8f);
     }
-
-    bool IsGrounded() => EnemyUtils.IsGrounded(col, transform, groundLayer);
 }

@@ -4,36 +4,53 @@ using UnityEngine;
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement")]
-    public float walkSpeed = 6f;
-    public float jumpForce = 17f;
-    public int maxJumpCharges = 2;
-    public LayerMask groundLayer;
-    public LayerMask platformLayer;
-    public float dropDownDuration = 0.15f;
+    [SerializeField]
+    private float walkSpeed = 6f;
+    [SerializeField]
+    private float jumpForce = 17f;
+    [SerializeField]
+    private int maxJumpCharges = 2;
+    [SerializeField]
+    private LayerMask groundLayer;
+    [SerializeField]
+    private LayerMask platformLayer;
+    [SerializeField]
+    private float dropDownDuration = 0.15f;
 
     [Tooltip("아래 점프 시 초기 하강 속도")]
-    public float dropDownSpeed = 8f;
+    [SerializeField]
+    private float dropDownSpeed = 8f;
 
     [Header("Gravity")]
-    public float gravityScale = 4f;
-    public float fallGravityMultiplier = 2.5f;
+    [SerializeField]
+    private float gravityScale = 4f;
+    [SerializeField]
+    private float fallGravityMultiplier = 2.5f;
 
     [Header("Air Control")]
     [Tooltip("공중에서 목표 속도에 도달하는 가속 (값이 클수록 즉각 반응, 작을수록 관성 유지)")]
-    public float airAcceleration = 40f;
+    [SerializeField]
+    private float airAcceleration = 40f;
 
     [Header("Knockback")]
-    public float knockbackDuration = 0.15f;
+    [SerializeField]
+    private float knockbackDuration = 0.15f;
 
     [Header("Audio")]
-    public AudioClip jumpSound;
-    public AudioClip dashSound;
+    [SerializeField]
+    private AudioClip jumpSound;
+    [SerializeField]
+    private AudioClip dashSound;
 
     [Header("Dash")]
-    public float dashSpeedMultiplier = 3f;
-    public float dashDuration = 0.3f;
-    public float dashCooldown = 1f;
-    public int maxDashCharges = 2;
+    [SerializeField]
+    private float dashSpeedMultiplier = 3f;
+    [SerializeField]
+    private float dashDuration = 0.3f;
+    [SerializeField]
+    private float dashCooldown = 1f;
+    [SerializeField]
+    private int maxDashCharges = 2;
 
     public bool IsGrounded { get; private set; }
     public bool IsOnPlatform { get; private set; }

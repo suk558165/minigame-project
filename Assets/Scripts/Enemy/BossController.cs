@@ -1,27 +1,17 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(SpriteRenderer))]
-public partial class BossController : MonoBehaviour, IDamageable
+public partial class BossController : BossBase
 {
     public static readonly List<BossController> Instances = new List<BossController>();
 
     // 도메인 리로드를 끈 상태에서도 이전 플레이의 잔여 항목이 남지 않도록 초기화
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() => Instances.Clear();
-
-    [Header("Stats")]
-    [SerializeField]
-    private float maxHp = 1000f;
-
-    [SerializeField]
-    private float moveSpeed = 3f;
-
-    [SerializeField]
-    private float damage = 20f;
 
     [Header("Phase 2")]
     [Tooltip("HP 비율이 이 값 이하가 되면 Phase 2 진입")]
@@ -66,29 +56,7 @@ public partial class BossController : MonoBehaviour, IDamageable
     [SerializeField]
     private float comboRange = 1.5f;
 
-    [SerializeField]
-    private Collider2D meleeHitbox;
     private float hitboxOffsetX;
-
-    [Header("패턴 공통")]
-    [SerializeField]
-    private float patternCooldown = 0.6f;
-
-    [SerializeField]
-    private float tellDuration = 0.35f;
-
-    [SerializeField]
-    private float detectionRange = 12f;
-
-    [Header("Drops")]
-    [SerializeField]
-    private GameObject goldDropPrefab;
-
-    [SerializeField]
-    private int goldDropMin = 20;
-
-    [SerializeField]
-    private int goldDropMax = 40;
 
     [Header("Knockback")]
     [SerializeField]
@@ -97,14 +65,7 @@ public partial class BossController : MonoBehaviour, IDamageable
     [SerializeField]
     private float knockbackDuration = 0.1f;
 
-    [Header("Ground Check")]
-    [SerializeField]
-    private LayerMask groundLayer;
-
     [Header("Audio")]
-    [SerializeField]
-    private AudioClip deathSound;
-
     [SerializeField]
     private AudioClip slamSound;
 
@@ -117,34 +78,8 @@ public partial class BossController : MonoBehaviour, IDamageable
     [SerializeField]
     private AudioClip dashSound;
 
-    private Rigidbody2D rb;
-    private SpriteRenderer sr;
-    private Collider2D col;
-
-    private float hp;
-    private bool isDead;
-    public bool IsDead => isDead;
     private bool isPhase2;
-    private bool isActing;
-    private float cooldownTimer;
     private bool attackFlip;
-
-    private Transform player;
-    private Color originalColor;
-
-    // 패턴이 유지하려는 색(기본/돌진 스턴 회색). 피격 플래시가 끝날 때 이 색으로 되돌린다.
-    private Color baseColor;
-
-    // animator.Play 중복 호출 방지용 현재 상태 이름 (PlayState 참고)
-    private string currentState;
-
-    // 피격 경직: 패턴 중이 아닐 때만 짧게 멈칫한다. 연타에 계속 묶이지 않도록 간격을 둔다.
-    const float StaggerDuration = 0.2f;
-    const float StaggerCooldown = 0.8f;
-    private float staggerTimer;
-    private float lastStaggerTime = -10f;
-
-    private CancellationTokenSource _cts = new();
 
     [Header("UI")]
     [SerializeField]
@@ -154,7 +89,6 @@ public partial class BossController : MonoBehaviour, IDamageable
     private GameObject bossHealthBarUIPrefab;
 
     private BossHealthBarUI healthBarUI;
-    private Animator animator;
 
     private ObjectPool<Projectile> projPool;
 
@@ -179,25 +113,11 @@ public partial class BossController : MonoBehaviour, IDamageable
     private bool untargetable;
     private Vector3 preAirbornePos;
 
-    public System.Action onDeath;
+    protected override int GoldDropCount => 5;
 
-    CancellationToken RefreshToken()
+    protected override void Awake()
     {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
-        return _cts.Token;
-    }
-
-    void Awake()
-    {
-        rb = GetComponent<Rigidbody2D>();
-        sr = GetComponent<SpriteRenderer>();
-        col = GetComponent<Collider2D>();
-        animator = GetComponent<Animator>();
-        hp = maxHp;
-        originalColor = sr.color;
-        baseColor = originalColor;
+        base.Awake();
 
         // BossHealthBarUI 인스턴스 확보: 씬에 없으면 프리팹/스크립트로 생성
         healthBarUI = BossHealthBarUI.Instance;
@@ -218,30 +138,12 @@ public partial class BossController : MonoBehaviour, IDamageable
         healthBarUI.SetHealth(hp, maxHp);
 
         if (meleeHitbox != null)
-        {
-            meleeHitbox.enabled = false;
             hitboxOffsetX = Mathf.Abs(meleeHitbox.offset.x);
-        }
     }
 
     void OnEnable() => Instances.Add(this);
 
     void OnDisable() => Instances.Remove(this);
-
-    void OnDestroy()
-    {
-        _cts?.Cancel();
-        _cts?.Dispose();
-    }
-
-    void Start()
-    {
-        if (PlayerRef.Exists)
-        {
-            player = PlayerRef.Transform;
-            Physics2D.IgnoreLayerCollision(gameObject.layer, PlayerRef.GameObject.layer, true);
-        }
-    }
 
     void Update()
     {
@@ -309,27 +211,6 @@ public partial class BossController : MonoBehaviour, IDamageable
         PlayState("Walk");
     }
 
-    // animator.Play 를 매 프레임 호출하면 클립이 0프레임에서 계속 리셋되므로 상태가 바뀔 때만 호출한다.
-    // 공격 동작은 같은 상태를 다시 처음부터 재생해야 하므로 restart 로 강제한다.
-    void PlayState(string state, bool restart = false, float normalizedTime = 0f)
-    {
-        if (animator == null)
-            return;
-        if (!restart && currentState == state)
-            return;
-        currentState = state;
-        animator.speed = 1f; // FreezePose 로 멈춘 재생을 되돌린다
-        animator.Play(state, 0, normalizedTime);
-    }
-
-    // 공중 급강하처럼 한 프레임 자세를 유지해야 할 때 사용 (다음 PlayState 에서 재생 재개)
-    void FreezePose(string state, float normalizedTime)
-    {
-        PlayState(state, true, normalizedTime);
-        if (animator != null)
-            animator.speed = 0f;
-    }
-
     // ── 패턴 선택 (실제 패턴 구현은 BossController.Patterns.cs) ──
 
     async UniTaskVoid PickAndExecutePattern(CancellationToken token)
@@ -387,30 +268,13 @@ public partial class BossController : MonoBehaviour, IDamageable
             PlayState("Idle");
     }
 
-    // ── 피격 ──
+    // ── 피격 / 사망 (공통 처리는 BossBase) ──
 
-    void OnTriggerEnter2D(Collider2D other)
+    // 공중으로 이탈한 동안(가시/공중마법 패턴)은 피격 무시
+    protected override bool CanTakeDamage => !untargetable;
+
+    protected override void OnDamaged()
     {
-        if (isDead || meleeHitbox == null || !meleeHitbox.enabled)
-            return;
-        if (!other.CompareTag("Player"))
-            return;
-        other.GetComponent<IDamageable>()?.TakeDamage(damage, gameObject);
-    }
-
-    public void TakeDamage(float amount, GameObject attacker = null)
-    {
-        if (isDead)
-            return;
-
-        // 공중으로 이탈한 동안(가시/공중마법 패턴)은 피격 무시
-        if (untargetable)
-            return;
-
-        amount *= MetaUpgrades.BossDamageMult;
-        hp -= amount;
-        DamagePopup.Spawn(transform.position + Vector3.up * 0.5f, amount);
-
         if (!isPhase2 && hp <= maxHp * phase2Threshold)
         {
             isPhase2 = true;
@@ -418,27 +282,16 @@ public partial class BossController : MonoBehaviour, IDamageable
         }
 
         healthBarUI?.SetHealth(hp, maxHp);
-
-        if (hp <= 0f)
-        {
-            if (meleeHitbox != null)
-                meleeHitbox.enabled = false;
-            Die();
-            return;
-        }
-
-        HitFlash().Forget();
-
-        if (!isActing && player != null && Time.time - lastStaggerTime >= StaggerCooldown)
-        {
-            lastStaggerTime = Time.time;
-            staggerTimer = StaggerDuration;
-            PlayState("Hit", true);
-            Knockback((transform.position - player.position).normalized, _cts.Token).Forget();
-        }
     }
 
-    UniTask HitFlash() => EnemyUtils.HitFlash(sr, baseColor, () => isDead);
+    protected override void OnStagger() =>
+        Knockback((transform.position - player.position).normalized, _cts.Token).Forget();
+
+    protected override void OnDied()
+    {
+        healthBarUI?.SetHealth(0, maxHp);
+        healthBarUI?.Hide();
+    }
 
     async UniTaskVoid Phase2Flash(CancellationToken token)
     {
@@ -461,48 +314,5 @@ public partial class BossController : MonoBehaviour, IDamageable
             await UniTask.Yield(token);
         }
         rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-    }
-
-    // ── 사망 ──
-
-    void Die()
-    {
-        isDead = true;
-        AudioManager.Instance?.PlaySFX(deathSound);
-        var token = RefreshToken();
-        if (animator != null)
-            animator.enabled = false;
-        sr.color = originalColor;
-        healthBarUI?.SetHealth(0, maxHp);
-        healthBarUI?.Hide();
-        if (meleeHitbox != null)
-            meleeHitbox.enabled = false;
-        rb.linearVelocity = Vector2.zero;
-        rb.bodyType = RigidbodyType2D.Kinematic;
-        if (col != null)
-            col.enabled = false;
-        onDeath?.Invoke();
-        onDeath = null;
-        RunStats.Instance?.AddKill();
-        SpawnDrops();
-        DeathRoutine(token).Forget();
-    }
-
-    void SpawnDrops()
-    {
-        EnemyUtils.SpawnGoldDrops(
-            goldDropPrefab,
-            transform.position,
-            groundLayer,
-            5,
-            goldDropMin,
-            goldDropMax
-        );
-    }
-
-    async UniTaskVoid DeathRoutine(CancellationToken token)
-    {
-        await EnemyUtils.DeathBlink(sr);
-        Destroy(gameObject);
     }
 }

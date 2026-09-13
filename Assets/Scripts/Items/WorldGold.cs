@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class WorldGold : MonoBehaviour
+public class WorldGold : WorldDrop
 {
     public static readonly List<WorldGold> Instances = new List<WorldGold>();
 
@@ -10,33 +10,29 @@ public class WorldGold : MonoBehaviour
     static void ResetStatics() => Instances.Clear();
 
     public int amount = 5;
-    public float magnetRadius = 3f;
-    public float pickupRadius = 0.8f;
-    public AudioClip pickupSound;
+
+    [SerializeField]
+    private float magnetRadius = 3f;
+
+    [SerializeField]
+    private float pickupRadius = 0.8f;
+
+    [SerializeField]
+    private AudioClip pickupSound;
 
     [Tooltip("자석 최고 속도. 플레이어 대쉬 속도보다 커야 따라잡는다")]
-    public float magnetSpeed = 22f;
+    [SerializeField]
+    private float magnetSpeed = 22f;
 
     [Tooltip("자석 가속도. 0에서 최고 속도까지 붙는 빠르기")]
-    public float magnetAcceleration = 60f;
+    [SerializeField]
+    private float magnetAcceleration = 60f;
 
     private Transform player;
     private Inventory inventory;
 
-    private Vector2 velocity;
-    private float gravity = 20f;
-    private float groundY;
-    private bool launched;
-    private bool grounded;
     private bool magnetized;
     private float magnetVelocity;
-
-    public void Launch(Vector2 force, float floorY)
-    {
-        velocity = force;
-        groundY = floorY;
-        launched = true;
-    }
 
     void OnEnable() => Instances.Add(this);
 
@@ -51,33 +47,7 @@ public class WorldGold : MonoBehaviour
     void Update()
     {
         FindPlayer();
-
-        if (launched)
-        {
-            velocity.y -= gravity * Time.deltaTime;
-            transform.position += (Vector3)velocity * Time.deltaTime;
-
-            // 착지 높이는 던져진 지점이 아니라 지금 동전이 있는 자리의 지면으로 판정한다.
-            // 스폰 시점의 floorY 로 판정하면, 옆으로 날아가 지형이 달라진 곳에서
-            // 원래 지면 높이에 그대로 멈춰 공중에 떠 있게 된다.
-            if (velocity.y < 0f)
-            {
-                float ground = FindGroundY();
-                if (transform.position.y <= ground)
-                {
-                    transform.position = new Vector3(
-                        transform.position.x,
-                        ground,
-                        transform.position.z
-                    );
-                    launched = false;
-                    grounded = true;
-                }
-            }
-        }
-
-        if (!grounded && !launched)
-            SnapToGround();
+        UpdateFall();
 
         if (player == null || inventory == null)
             return;
@@ -111,29 +81,7 @@ public class WorldGold : MonoBehaviour
             float goldDrop = inventory.GetTotalStatBonus().goldDrop;
             inventory.AddGold(Mathf.RoundToInt(amount * (1f + goldDrop)));
             Destroy(gameObject);
-            return;
         }
-    }
-
-    void SnapToGround()
-    {
-        float y = FindGroundY();
-        if (y < transform.position.y)
-            transform.position = new Vector3(transform.position.x, y, transform.position.z);
-        grounded = true;
-    }
-
-    float FindGroundY()
-    {
-        var hit = Physics2D.Raycast(
-            transform.position,
-            Vector2.down,
-            20f,
-            LayerMask.GetMask("Ground", "Platform")
-        );
-        if (hit.collider != null)
-            return hit.point.y;
-        return groundY;
     }
 
     void FindPlayer()

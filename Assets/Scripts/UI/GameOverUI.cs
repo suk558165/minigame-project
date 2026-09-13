@@ -9,32 +9,46 @@ using UnityEngine.UI;
 public class GameOverUI : MonoBehaviour
 {
     [Header("Panel")]
-    public CanvasGroup canvasGroup;
-    public float fadeInDuration = 0.6f;
+    [SerializeField]
+    private CanvasGroup canvasGroup;
+    [SerializeField]
+    private float fadeInDuration = 0.6f;
 
     [Header("Background")]
     [Tooltip("게임오버 배경 스프라이트 (책 왼쪽 페이지)")]
-    public Sprite backgroundSprite;
+    [SerializeField]
+    private Sprite backgroundSprite;
 
     [Header("Stats")]
-    public TextMeshProUGUI playTimeText;
-    public TextMeshProUGUI deathCountText;
-    public TextMeshProUGUI killCountText;
-    public TextMeshProUGUI goldEarnedText;
-    public TextMeshProUGUI damageDealtText;
-    public TextMeshProUGUI damageTakenText;
-    public TextMeshProUGUI itemsGainedText;
+    [SerializeField]
+    private TextMeshProUGUI playTimeText;
+    [SerializeField]
+    private TextMeshProUGUI deathCountText;
+    [SerializeField]
+    private TextMeshProUGUI killCountText;
+    [SerializeField]
+    private TextMeshProUGUI goldEarnedText;
+    [SerializeField]
+    private TextMeshProUGUI damageDealtText;
+    [SerializeField]
+    private TextMeshProUGUI damageTakenText;
+    [SerializeField]
+    private TextMeshProUGUI itemsGainedText;
 
     [Header("Audio")]
-    public AudioClip gameOverSound;
+    [SerializeField]
+    private AudioClip gameOverSound;
 
     [Header("Return")]
-    public TextMeshProUGUI returnHintText;
-    public KeyCode returnKey = KeyCode.X;
+    [SerializeField]
+    private TextMeshProUGUI returnHintText;
+    [SerializeField]
+    private KeyCode returnKey = KeyCode.X;
 
     [Header("사망 연출")]
     [Tooltip("죽는 애니메이션이 재생될 시간. 이 시간이 지난 뒤 게임을 멈추고 결과창을 띄운다.")]
-    public float deathAnimDuration = 1.2f;
+    [SerializeField]
+    private float deathAnimDuration = 1.2f;
 
     private bool triggered;
     private bool canReturn;
