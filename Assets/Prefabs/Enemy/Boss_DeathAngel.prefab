@@ -275,7 +275,7 @@ MonoBehaviour:
   projectileSpeed: 8
   projectileSpread: 30
   comboHitCount: 3
-  comboInterval: 0.3
+  comboInterval: 0.15
   comboRange: 1.5
   meleeHitbox: {fileID: 5566778899001122334}
   patternCooldown: 2

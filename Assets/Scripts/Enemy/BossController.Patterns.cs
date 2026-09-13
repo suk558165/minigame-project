@@ -6,6 +6,11 @@ using UnityEngine;
 // BossController 의 패턴 연출 부분 (상태/수명주기는 BossController.cs).
 public partial class BossController
 {
+    // Boss_DeathAngelController 클립 길이 (12fps). 패턴 타이밍을 애니메이션에 맞추는 기준.
+    const float ClipSlam = 0.667f;   // cast_1~8
+    const float ClipCharge = 0.5f;   // ready_teleport_1~6
+    const float ClipCombo = 0.583f;  // attack_1~7
+
     // ── 텔 (예고 연출) ──
 
     UniTask TellFlash(Color color) =>
@@ -22,18 +27,21 @@ public partial class BossController
         attackFlip = true;
         FlipToPlayer();
         AudioManager.Instance?.PlaySFX(dashSound);
-        if (animator != null)
-            animator.Play("DashRun", 0, 0f);
+        PlayState("DashRun", true);
 
         float dir = player.position.x > transform.position.x ? 1f : -1f;
         float elapsed = 0f;
+
+        // 이미 사거리 안이면 돌진 모션이 1프레임만 보이고 끊기므로 최소 재생 시간을 준다.
+        const float minDashRun = 0.2f;
 
         // 돌진: 플레이어 근처까지 이동 (데미지 없음)
         while (elapsed < chargeDuration)
         {
             transform.position += new Vector3(dir * chargeSpeed * Time.deltaTime, 0f, 0f);
 
-            if (Vector2.Distance(transform.position, player.position) <= comboRange)
+            if (elapsed >= minDashRun
+                && Vector2.Distance(transform.position, player.position) <= comboRange)
                 break;
 
             elapsed += Time.deltaTime;
@@ -43,17 +51,18 @@ public partial class BossController
         // 도착 후 베기
         rb.linearVelocity = Vector2.zero;
         FlipToPlayer();
-        if (animator != null)
-            animator.Play("Dash", 0, 0f);
+        PlayState("Dash", true);
 
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
         DealAreaDamage(transform.position, comboRange);
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.15f), cancellationToken: token);
 
         // 스턴 (반격 타이밍)
-        sr.color = Color.gray;
+        baseColor = Color.gray;
+        sr.color = baseColor;
         await UniTask.Delay(System.TimeSpan.FromSeconds(chargeStunDuration), cancellationToken: token);
-        sr.color = originalColor;
+        baseColor = originalColor;
+        sr.color = baseColor;
 
         attackFlip = false;
     }
@@ -64,8 +73,7 @@ public partial class BossController
     {
         await TellShake();
 
-        if (animator != null)
-            animator.Play("Slam", 0, 0f);
+        PlayState("Slam", true);
 
         // 점프
         rb.linearVelocity = new Vector2(0f, slamJumpForce);
@@ -90,9 +98,15 @@ public partial class BossController
             warning.transform.localScale = new Vector3(100f, 0.3f, 1f);
         }
 
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.15f), cancellationToken: token);
+        // 시전(Slam) 클립을 끝까지 재생한 뒤 급강하로 넘어가도록 남은 시간만큼 대기.
+        // 여기까지 Slam 재생 후 경과 시간: 이륙 대기(liftWait) + 0.2
+        await UniTask.Delay(
+            System.TimeSpan.FromSeconds(Mathf.Max(0.15f, ClipSlam - liftWait - 0.2f)),
+            cancellationToken: token
+        );
 
-        // 급강하
+        // 급강하 — 시전이 끝났으므로 비행 루프로 전환 (마지막 프레임 고정 방지)
+        PlayState("Fly", true);
         rb.MovePosition(new Vector2(targetPos.x, rb.position.y));
         rb.linearVelocity = new Vector2(0f, -slamFallSpeed);
 
@@ -113,6 +127,7 @@ public partial class BossController
         AudioManager.Instance?.PlaySFX(slamSound);
         SlamGroundDamage();
 
+        PlayState("Idle"); // 착지했으므로 비행 루프를 끊는다
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.25f), cancellationToken: token);
     }
 
@@ -122,12 +137,15 @@ public partial class BossController
     {
         await TellFlash(new Color(1f, 0.5f, 0f));
 
-        FlipToPlayer();
-        if (animator != null)
-            animator.Play("Charge", 0, 0f);
-
         if (projectilePrefab == null || player == null)
             return;
+
+        FlipToPlayer();
+        PlayState("Charge", true);
+
+        // 시전 동작이 어느 정도 진행된 뒤 발사 (0프레임 발사 방지)
+        const float castLead = 0.3f;
+        await UniTask.Delay(System.TimeSpan.FromSeconds(castLead), cancellationToken: token);
 
         AudioManager.Instance?.PlaySFX(projectileSound);
         // 기준점(발밑)끼리 조준하면 발밑에서 바닥으로 쏜다. 몸 중앙에서 플레이어 몸 중앙을 노린다.
@@ -155,7 +173,11 @@ public partial class BossController
             projComp.Init(dir, projectileSpeed, damage, gameObject);
         }
 
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.25f), cancellationToken: token);
+        // 남은 시전 클립 재생 (0.5s 클립이 0.25s 에서 잘려나가던 문제)
+        await UniTask.Delay(
+            System.TimeSpan.FromSeconds(ClipCharge - castLead),
+            cancellationToken: token
+        );
     }
 
     Projectile GetPooledProjectile(Vector2 origin)
@@ -272,8 +294,7 @@ public partial class BossController
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Kinematic;
 
-        if (animator != null)
-            animator.Play("Fly", 0, 0f);
+        PlayState("Fly", true);
 
         Vector3 start = transform.position;
         Vector3 target = start + Vector3.up * height;
@@ -290,8 +311,7 @@ public partial class BossController
         // Fly → Float 전환, 둥둥 흔들림 시작
         bobBasePos = target;
         isBobbing = true;
-        if (animator != null)
-            animator.Play("Float", 0, 0f);
+        PlayState("Float", true);
         BobLoop(token).Forget();
     }
 
@@ -313,8 +333,7 @@ public partial class BossController
     {
         isBobbing = false;
 
-        if (animator != null)
-            animator.Play("Fly", 0, 0f);
+        PlayState("Fly", true);
 
         Vector3 start = transform.position;
         float t = 0f;
@@ -341,8 +360,11 @@ public partial class BossController
         attackFlip = true;
         FlipToPlayer();
         AudioManager.Instance?.PlaySFX(comboSound);
-        if (animator != null)
-            animator.Play("Combo", 0, 0f);
+        PlayState("Combo", true);
+
+        // 휘두르기 시작 프레임에 첫 타격을 맞춘다 (0프레임 피해 방지)
+        const float swingLead = 0.17f;
+        await UniTask.Delay(System.TimeSpan.FromSeconds(swingLead), cancellationToken: token);
 
         for (int i = 0; i < comboHitCount; i++)
         {
@@ -354,7 +376,13 @@ public partial class BossController
         }
 
         attackFlip = false;
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.15f), cancellationToken: token);
+
+        // 클립 잔여 시간만큼 후딜 (타격이 클립 밖으로 밀려나지 않도록)
+        float used = swingLead + comboInterval * (comboHitCount - 1);
+        await UniTask.Delay(
+            System.TimeSpan.FromSeconds(Mathf.Max(0.1f, ClipCombo - used)),
+            cancellationToken: token
+        );
     }
 
     // ── 범위 데미지 ──

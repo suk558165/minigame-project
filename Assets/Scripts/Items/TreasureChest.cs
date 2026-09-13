@@ -1,9 +1,16 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 public class TreasureChest : MonoBehaviour
 {
+    public static readonly List<TreasureChest> Instances = new List<TreasureChest>();
+
+    // 도메인 리로드를 끈 상태에서도 이전 플레이의 잔여 항목이 남지 않도록 초기화
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => Instances.Clear();
+
     [Header("Reward")]
     public int goldMin = 20;
     public int goldMax = 40;
@@ -38,6 +45,31 @@ public class TreasureChest : MonoBehaviour
     private Animator animator;
     private Vector3 originScale;
     private Vector3 originPos;
+
+    void OnEnable() => Instances.Add(this);
+
+    void OnDisable() => Instances.Remove(this);
+
+    /// <summary>
+    /// 열지 않은 채 방을 떠날 때 호출한다.
+    /// 동전을 뿌려봐야 플레이어가 이미 다음 방이라 주울 수 없으므로 보상을 바로 지급한다.
+    /// </summary>
+    public void ClaimAndDestroy()
+    {
+        if (!opened)
+        {
+            opened = true;
+            var inventory = PlayerRef.Inventory;
+            if (inventory != null)
+            {
+                int gold = Random.Range(goldMin, goldMax + 1);
+                float bonus = inventory.GetTotalStatBonus().goldDrop;
+                inventory.AddGold(Mathf.RoundToInt(gold * (1f + bonus)));
+                AudioManager.Instance?.PlaySFX(openSound);
+            }
+        }
+        Destroy(gameObject);
+    }
 
     void Start()
     {

@@ -141,6 +141,12 @@ public partial class BossController : MonoBehaviour, IDamageable
     private Transform player;
     private Color originalColor;
 
+    // 패턴이 유지하려는 색(기본/돌진 스턴 회색). 피격 플래시가 끝날 때 이 색으로 되돌린다.
+    private Color baseColor;
+
+    // animator.Play 중복 호출 방지용 현재 상태 이름 (PlayState 참고)
+    private string currentState;
+
     private CancellationTokenSource _cts = new();
 
     [Header("UI")]
@@ -194,6 +200,7 @@ public partial class BossController : MonoBehaviour, IDamageable
         animator = GetComponent<Animator>();
         hp = maxHp;
         originalColor = sr.color;
+        baseColor = originalColor;
 
         // BossHealthBarUI 인스턴스 확보: 씬에 없으면 프리팹/스크립트로 생성
         healthBarUI = BossHealthBarUI.Instance;
@@ -295,6 +302,19 @@ public partial class BossController : MonoBehaviour, IDamageable
     {
         float dir = player.position.x > transform.position.x ? 1f : -1f;
         rb.linearVelocity = new Vector2(dir * moveSpeed, rb.linearVelocity.y);
+        PlayState("Walk");
+    }
+
+    // animator.Play 를 매 프레임 호출하면 클립이 0프레임에서 계속 리셋되므로 상태가 바뀔 때만 호출한다.
+    // 공격 동작은 같은 상태를 다시 처음부터 재생해야 하므로 restart 로 강제한다.
+    void PlayState(string state, bool restart = false)
+    {
+        if (animator == null)
+            return;
+        if (!restart && currentState == state)
+            return;
+        currentState = state;
+        animator.Play(state, 0, 0f);
     }
 
     // ── 패턴 선택 (실제 패턴 구현은 BossController.Patterns.cs) ──
@@ -303,6 +323,7 @@ public partial class BossController : MonoBehaviour, IDamageable
     {
         isActing = true;
         rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        PlayState("Idle"); // 텔(예고) 구간은 걷기가 아닌 정지 자세
 
         if (isPhase2)
         {
@@ -349,8 +370,8 @@ public partial class BossController : MonoBehaviour, IDamageable
         }
 
         isActing = false;
-        if (animator != null && !isDead)
-            animator.Play("Idle", 0, 0f);
+        if (!isDead)
+            PlayState("Idle");
     }
 
     // ── 피격 ──
@@ -399,7 +420,7 @@ public partial class BossController : MonoBehaviour, IDamageable
             Knockback((transform.position - player.position).normalized, _cts.Token).Forget();
     }
 
-    UniTask HitFlash() => EnemyUtils.HitFlash(sr, originalColor, () => isDead);
+    UniTask HitFlash() => EnemyUtils.HitFlash(sr, baseColor, () => isDead);
 
     async UniTaskVoid Phase2Flash(CancellationToken token)
     {

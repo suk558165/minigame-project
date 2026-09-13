@@ -192,6 +192,11 @@ public class RoomManager : MonoBehaviour
         foreach (var p in WorldPotion.Instances.ToArray())
             Destroy(p.gameObject);
 
+        // 상자는 방의 자식이 아니라 루트에 생성되므로 방을 지워도 남아 다음 방까지 따라온다.
+        // 열지 않고 넘어갔으면 보상을 바로 지급하고 정리한다.
+        foreach (var c in TreasureChest.Instances.ToArray())
+            c.ClaimAndDestroy();
+
         if (currentRoom != null)
             Destroy(currentRoom);
 

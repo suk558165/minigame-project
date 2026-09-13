@@ -83,7 +83,9 @@ public static class EnemyUtils
     public static void SpawnGoldDrops(
         GameObject prefab, Vector3 pos, LayerMask groundLayer,
         int count, int minGold, int maxGold,
-        float minAngle = 30f, float maxAngle = 150f)
+        // 각도가 45도에 가까울수록 옆으로 멀리 날아간다. 수직에 가깝게 두어
+        // 죽은 자리 근처에 떨어지게 한다. (force 6 기준 수평 0.9칸 이내)
+        float minAngle = 75f, float maxAngle = 105f)
     {
         if (prefab == null)
             return;

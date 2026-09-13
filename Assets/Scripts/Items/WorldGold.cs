@@ -57,25 +57,17 @@ public class WorldGold : MonoBehaviour
             velocity.y -= gravity * Time.deltaTime;
             transform.position += (Vector3)velocity * Time.deltaTime;
 
-            if (velocity.y < 0f && transform.position.y <= groundY)
+            // 착지 높이는 던져진 지점이 아니라 지금 동전이 있는 자리의 지면으로 판정한다.
+            // 스폰 시점의 floorY 로 판정하면, 옆으로 날아가 지형이 달라진 곳에서
+            // 원래 지면 높이에 그대로 멈춰 공중에 떠 있게 된다.
+            if (velocity.y < 0f)
             {
-                transform.position = new Vector3(
-                    transform.position.x,
-                    groundY,
-                    transform.position.z
-                );
-                launched = false;
-                grounded = true;
-            }
-
-            if (!grounded && velocity.y < 0f)
-            {
-                float realGround = FindGroundY();
-                if (transform.position.y <= realGround)
+                float ground = FindGroundY();
+                if (transform.position.y <= ground)
                 {
                     transform.position = new Vector3(
                         transform.position.x,
-                        realGround,
+                        ground,
                         transform.position.z
                     );
                     launched = false;

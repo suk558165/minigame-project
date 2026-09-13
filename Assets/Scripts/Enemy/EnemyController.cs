@@ -781,7 +781,7 @@ public class EnemyController : MonoBehaviour, IDamageable
 
     void SpawnDrops()
     {
-        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, groundLayer, 1, goldDropMin, goldDropMax, 50f, 130f);
+        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, groundLayer, 1, goldDropMin, goldDropMax);
 
         if (potionDropPrefab != null && Random.value < potionDropChance + MetaUpgrades.PotionDropBonus)
         {

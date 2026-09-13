@@ -105,6 +105,16 @@ public class MiniBossController : MonoBehaviour, IDamageable
     private Collider2D col;
     private Color originalColor;
 
+    // 패턴이 유지하려는 색(기본/돌진 스턴 회색). 피격 플래시가 끝날 때 이 색으로 되돌린다.
+    private Color baseColor;
+
+    // animator.Play 중복 호출 방지용 현재 상태 이름 (PlayState 참고)
+    private string currentState;
+
+    // MiniBoss_SkeletonKingController 클립 길이 (12fps). 패턴 타이밍을 애니메이션에 맞추는 기준.
+    const float ClipGroundWave = 0.667f;  // cast_1~8
+    const float ClipLeapSlash = 0.583f;   // attack1_1~7
+
     private float hp;
     private bool isDead;
     private bool isActing;
@@ -134,6 +144,7 @@ public class MiniBossController : MonoBehaviour, IDamageable
         animator = GetComponent<Animator>();
         hp = maxHp;
         originalColor = sr.color;
+        baseColor = originalColor;
         healthBar = gameObject.AddComponent<EnemyHealthBar>();
         healthBar.Init(new Vector3(0f, -0.6f, 0f));
 
@@ -192,9 +203,23 @@ public class MiniBossController : MonoBehaviour, IDamageable
         if (IsWallAhead(dir))
         {
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            PlayState("Idle");
             return;
         }
         rb.linearVelocity = new Vector2(dir * moveSpeed, rb.linearVelocity.y);
+        PlayState("Walk");
+    }
+
+    // animator.Play 를 매 프레임 호출하면 클립이 0프레임에서 계속 리셋되므로 상태가 바뀔 때만 호출한다.
+    // 공격 동작은 같은 상태를 다시 처음부터 재생해야 하므로 restart 로 강제한다.
+    void PlayState(string state, bool restart = false)
+    {
+        if (animator == null)
+            return;
+        if (!restart && currentState == state)
+            return;
+        currentState = state;
+        animator.Play(state, 0, 0f);
     }
 
     bool IsWallAhead(float direction)
@@ -210,6 +235,7 @@ public class MiniBossController : MonoBehaviour, IDamageable
     {
         isActing = true;
         rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        PlayState("Idle"); // 텔(예고) 구간은 걷기가 아닌 정지 자세
 
         int pattern = Random.Range(0, 3);
         switch (pattern)
@@ -226,8 +252,8 @@ public class MiniBossController : MonoBehaviour, IDamageable
         }
 
         isActing = false;
-        if (animator != null && !isDead)
-            animator.Play("Idle", 0, 0f);
+        if (!isDead)
+            PlayState("Idle");
     }
 
     // ── 텔 연출 ──────────────────────────────────────
@@ -241,8 +267,7 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     async UniTask GroundWave(CancellationToken token)
     {
-        if (animator != null)
-            animator.Play("GroundWave", 0, 0f);
+        PlayState("GroundWave", true); // 시전 앞부분이 예고 역할을 겸한다
         await TellShake();
 
         rb.linearVelocity = Vector2.zero;
@@ -276,7 +301,11 @@ public class MiniBossController : MonoBehaviour, IDamageable
                 rightSr.flipX = true;
         }
 
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.3f), cancellationToken: token);
+        // 시전 클립 잔여 재생 (0.3s 고정이라 클립이 잘리거나 마지막 프레임에서 멈췄다)
+        await UniTask.Delay(
+            System.TimeSpan.FromSeconds(Mathf.Max(0.1f, ClipGroundWave - tellDuration)),
+            cancellationToken: token
+        );
     }
 
     // ── 패턴 2: 도약 베기 ─────────────────────────────
@@ -284,11 +313,10 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     async UniTask LeapSlash(CancellationToken token)
     {
-        if (animator != null)
-            animator.Play("LeapSlash", 0, 0f);
         await TellFlash(Color.yellow);
 
         AudioManager.Instance?.PlaySFX(leapSlashSound);
+        PlayState("Jump", true); // 공중 구간은 점프 루프 (베기는 착지 시점에)
         rb.linearVelocity = new Vector2(0f, leapJumpForce);
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
 
@@ -300,18 +328,23 @@ public class MiniBossController : MonoBehaviour, IDamageable
             transform.position = p;
         }
 
-        while (!IsGrounded())
+        // 착지하지 못하는 위치(맵 밖 등)에서 무한 대기하지 않도록 타임아웃을 둔다.
+        float fallElapsed = 0f;
+        while (!IsGrounded() && fallElapsed < 3f)
         {
             rb.linearVelocity = new Vector2(0f, -leapFallSpeed);
+            fallElapsed += Time.deltaTime;
             await UniTask.Yield(token);
         }
 
         rb.linearVelocity = Vector2.zero;
 
         // 착지 충격 — IgnoreLayerCollision으로 트리거가 막히므로 직접 거리 계산
+        PlayState("LeapSlash", true);
         DealAreaDamage(transform.position, leapRadius);
 
-        await UniTask.Delay(System.TimeSpan.FromSeconds(0.2f), cancellationToken: token);
+        // 베기 클립 완주 (0.2s 에서 잘려 마지막 프레임이 굳던 문제)
+        await UniTask.Delay(System.TimeSpan.FromSeconds(ClipLeapSlash), cancellationToken: token);
     }
 
     // ── 패턴 3: 연속 돌진 ─────────────────────────────
@@ -319,11 +352,10 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     async UniTask MultiDash(CancellationToken token)
     {
-        if (animator != null && animator.HasState(0, Animator.StringToHash("MultiDash")))
-            animator.Play("MultiDash", 0, 0f);
         await TellFlash(Color.cyan);
 
         AudioManager.Instance?.PlaySFX(dashSound);
+        PlayState("MultiDash", true); // 진입 동작(attack2) → 이후 attack2_loop 으로 연결
         bool prevRootMotion = animator != null && animator.applyRootMotion;
         if (animator != null)
             animator.applyRootMotion = false;
@@ -336,6 +368,10 @@ public class MiniBossController : MonoBehaviour, IDamageable
             FlipToPlayer();
             float dir = player.position.x > transform.position.x ? 1f : -1f;
             dashHitThisSegment = false;
+
+            // 2번째 돌진부터는 루프 클립으로 유지 (마지막 프레임 고정 방지)
+            if (i > 0)
+                PlayState("DashLoop");
 
             float elapsed = 0f;
             while (elapsed < dashDuration)
@@ -360,9 +396,12 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
         // 스턴
         rb.linearVelocity = Vector2.zero;
-        sr.color = Color.gray;
+        PlayState("Idle");
+        baseColor = Color.gray;
+        sr.color = baseColor;
         await UniTask.Delay(System.TimeSpan.FromSeconds(0.3f), cancellationToken: token);
-        sr.color = originalColor;
+        baseColor = originalColor;
+        sr.color = baseColor;
     }
 
     // ── 유틸 ──────────────────────────────────────────
@@ -417,7 +456,7 @@ public class MiniBossController : MonoBehaviour, IDamageable
         HitFlash().Forget();
     }
 
-    UniTask HitFlash() => EnemyUtils.HitFlash(sr, originalColor, () => isDead);
+    UniTask HitFlash() => EnemyUtils.HitFlash(sr, baseColor, () => isDead);
 
     void Die()
     {
