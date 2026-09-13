@@ -100,38 +100,15 @@ public partial class BossController
         }
 
         // 정점까지 곡선 이동 (정점에서 옆으로 순간이동하던 문제)
-        rb.linearVelocity = Vector2.zero;
-        rb.bodyType = RigidbodyType2D.Kinematic;
         PlayState("Fly", true);
-        Vector3 start = transform.position;
-        float t = 0f;
-        while (t < SlamRiseTime)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / SlamRiseTime);
-            float x = Mathf.Lerp(start.x, targetPos.x, Mathf.SmoothStep(0f, 1f, k));
-            float y = start.y + SlamRiseHeight * (1f - (1f - k) * (1f - k)); // 정점에 가까울수록 감속
-            transform.position = new Vector3(x, y, start.z);
-            await UniTask.Yield(token);
-        }
+        await EnemyUtils.LeapArc(rb, transform, targetPos.x, SlamRiseHeight, SlamRiseTime, token);
 
         // 정점: 낫을 치켜든 자세로 잠깐 멈췄다가 급강하
         FlipToPlayer();
         FreezePose("Slam", SlamRaisePose / ClipSlam);
         await UniTask.Delay(System.TimeSpan.FromSeconds(SlamHangTime), cancellationToken: token);
 
-        rb.bodyType = RigidbodyType2D.Dynamic;
-        rb.linearVelocity = new Vector2(0f, -slamFallSpeed);
-
-        float fallTimeout = 3f;
-        float fallElapsed = 0f;
-        while (!IsGrounded() && fallElapsed < fallTimeout)
-        {
-            rb.linearVelocity = new Vector2(0f, -slamFallSpeed);
-            fallElapsed += Time.deltaTime;
-            await UniTask.Yield(token);
-        }
-        rb.linearVelocity = Vector2.zero;
+        await EnemyUtils.DiveUntilGrounded(rb, slamFallSpeed, IsGrounded, token);
 
         if (warning != null)
             Destroy(warning);
@@ -406,35 +383,21 @@ public partial class BossController
 
     // ── 범위 데미지 ──
 
-    void DealAreaDamage(Vector3 center, float radius)
-    {
-        if (player == null)
-            return;
-        if (Vector2.Distance(center, player.position) <= radius)
-        {
-            player.GetComponent<IDamageable>()?.TakeDamage(damage, gameObject);
-            var playerCtrl = player.GetComponent<PlayerController>();
-            if (playerCtrl != null)
-            {
-                Vector2 knockDir = ((Vector2)player.position - (Vector2)center).normalized;
-                playerCtrl.Knockback(knockDir * 8f);
-            }
-        }
-    }
+    void DealAreaDamage(Vector3 center, float radius) =>
+        EnemyUtils.DealAreaDamage(center, radius, damage, gameObject, 8f);
 
     void SlamGroundDamage()
     {
-        if (player == null)
+        if (!PlayerRef.Exists)
             return;
 
-        var movement = player.GetComponent<PlayerMovement>();
+        var movement = PlayerRef.Movement;
         if (movement != null && !movement.IsGrounded)
             return;
 
-        player.GetComponent<IDamageable>()?.TakeDamage(damage, gameObject);
-        var playerCtrl = player.GetComponent<PlayerController>();
-        if (playerCtrl != null)
-            playerCtrl.Knockback(Vector2.up * 8f);
+        PlayerRef.Damageable?.TakeDamage(damage, gameObject);
+        if (PlayerRef.Controller != null)
+            PlayerRef.Controller.Knockback(Vector2.up * 8f);
     }
 
     bool IsGrounded() => EnemyUtils.IsGrounded(col, transform, groundLayer);

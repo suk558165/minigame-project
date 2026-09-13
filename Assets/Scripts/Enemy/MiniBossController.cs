@@ -356,37 +356,14 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
         // 곡선으로 플레이어 위까지 이동 (0.2초 상승 후 옆으로 순간이동하던 문제)
         float targetX = player != null ? player.position.x : transform.position.x;
-        rb.linearVelocity = Vector2.zero;
-        rb.bodyType = RigidbodyType2D.Kinematic;
-        Vector3 start = transform.position;
-        float t = 0f;
-        while (t < LeapRiseTime)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / LeapRiseTime);
-            float x = Mathf.Lerp(start.x, targetX, Mathf.SmoothStep(0f, 1f, k));
-            float y = start.y + LeapRiseHeight * (1f - (1f - k) * (1f - k)); // 정점에 가까울수록 감속
-            transform.position = new Vector3(x, y, start.z);
-            await UniTask.Yield(token);
-        }
+        await EnemyUtils.LeapArc(rb, transform, targetX, LeapRiseHeight, LeapRiseTime, token);
 
         // 정점: 칼을 뒤로 뺀 자세로 잠깐 멈췄다가 급강하
         FlipToPlayer();
         FreezePose("LeapSlash", LeapAirPose / ClipLeapSlash);
         await UniTask.Delay(System.TimeSpan.FromSeconds(LeapHangTime), cancellationToken: token);
 
-        rb.bodyType = RigidbodyType2D.Dynamic;
-
-        // 착지하지 못하는 위치(맵 밖 등)에서 무한 대기하지 않도록 타임아웃을 둔다.
-        float fallElapsed = 0f;
-        while (!IsGrounded() && fallElapsed < 3f)
-        {
-            rb.linearVelocity = new Vector2(0f, -leapFallSpeed);
-            fallElapsed += Time.deltaTime;
-            await UniTask.Yield(token);
-        }
-
-        rb.linearVelocity = Vector2.zero;
+        await EnemyUtils.DiveUntilGrounded(rb, leapFallSpeed, IsGrounded, token);
 
         // 착지 순간 베기 궤적 프레임부터 재생
         // 착지 충격 — IgnoreLayerCollision으로 트리거가 막히므로 직접 거리 계산
@@ -464,22 +441,11 @@ public class MiniBossController : MonoBehaviour, IDamageable
 
     // ── 유틸 ──────────────────────────────────────────
 
+    // 넉백은 가로 방향 위주로 살짝 띄운다
     void DealAreaDamage(Vector3 center, float radius)
     {
-        if (player == null)
-            return;
-        if (Vector2.Distance(center, player.position) > radius)
-            return;
-
-        player.GetComponent<IDamageable>()?.TakeDamage(damage, gameObject);
-        dashHitThisSegment = true;
-
-        var ctrl = player.GetComponent<PlayerController>();
-        if (ctrl != null)
-        {
-            Vector2 knockDir = ((Vector2)player.position - (Vector2)center).normalized;
-            ctrl.Knockback(new Vector2(knockDir.x, 0.3f).normalized * 7f);
-        }
+        if (EnemyUtils.DealAreaDamage(center, radius, damage, gameObject, 7f, 0.3f))
+            dashHitThisSegment = true;
     }
 
     void OnTriggerEnter2D(Collider2D other)
