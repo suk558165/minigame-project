@@ -17,6 +17,21 @@ public abstract class WorldDrop : MonoBehaviour
     protected bool launched;
     protected bool grounded;
 
+    // 루트 위치에서 그림 밑까지의 거리. 스프라이트 기준점이 가운데라 루트를 바닥에 두면
+    // 그림 아래 절반이 바닥에 파묻히므로, 이만큼 띄워서 놓는다.
+    private float restOffset;
+
+    protected virtual void Awake()
+    {
+        var sr = GetComponentInChildren<SpriteRenderer>(true);
+        if (sr != null && sr.sprite != null)
+        {
+            Bounds local = sr.sprite.bounds;
+            float bottom = sr.transform.TransformPoint(new Vector3(local.center.x, local.min.y, 0f)).y;
+            restOffset = Mathf.Max(0f, transform.position.y - bottom);
+        }
+    }
+
     public void Launch(Vector2 force)
     {
         velocity = force;
@@ -29,19 +44,22 @@ public abstract class WorldDrop : MonoBehaviour
     {
         if (launched)
         {
+            float prevY = transform.position.y;
             velocity.y -= Gravity * Time.deltaTime;
             transform.position += (Vector3)velocity * Time.deltaTime;
 
             // 착지는 지금 있는 자리 아래에 실제 바닥이 있을 때만 한다.
             // 던져진 지점의 바닥 높이를 기준으로 삼으면, 발판 끝에서 옆으로 떨어진 경우
             // 원래 발판 높이에서 공중에 멈춘다 (아래가 구덩이면 영영 떠 있다).
+            // 바닥은 이전 프레임 높이에서 찾는다. 한 프레임에 바닥 속으로 들어간 뒤 그 자리에서 찾으면
+            // 레이가 바닥 안에서 시작해 파묻힌 위치를 바닥으로 인식한다.
             if (velocity.y < 0f)
             {
-                if (TryFindGroundY(out float ground))
+                if (TryFindGroundY(prevY, out float ground))
                 {
-                    if (transform.position.y <= ground)
+                    if (transform.position.y - restOffset <= ground)
                     {
-                        transform.position = new Vector3(transform.position.x, ground, transform.position.z);
+                        PlaceOnGround(ground);
                         launched = false;
                         grounded = true;
                     }
@@ -60,15 +78,19 @@ public abstract class WorldDrop : MonoBehaviour
 
     protected void SnapToGround()
     {
-        if (TryFindGroundY(out float y) && y < transform.position.y)
-            transform.position = new Vector3(transform.position.x, y, transform.position.z);
+        // 루트가 이미 바닥 속으로 들어가 있을 수 있으므로 그림 높이만큼 위에서 바닥을 찾는다.
+        if (TryFindGroundY(transform.position.y + restOffset, out float y))
+            PlaceOnGround(y);
         grounded = true;
     }
 
-    bool TryFindGroundY(out float y)
+    void PlaceOnGround(float groundY) =>
+        transform.position = new Vector3(transform.position.x, groundY + restOffset, transform.position.z);
+
+    bool TryFindGroundY(float originY, out float y)
     {
         var hit = Physics2D.Raycast(
-            transform.position,
+            new Vector2(transform.position.x, originY),
             Vector2.down,
             GroundProbeDistance,
             LayerMask.GetMask("Ground", "Platform")
