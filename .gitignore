@@ -65,6 +65,8 @@ CLAUDE.md
 *.unityproj
 *.sln
 *.suo
+# 프로젝트 폴더 이름으로 재생성되는 중복 솔루션 (minigame-project.slnx 만 추적)
+minigame-project-suk558165.slnx
 
 ### Windows
 # Windows thumbnail cache files
