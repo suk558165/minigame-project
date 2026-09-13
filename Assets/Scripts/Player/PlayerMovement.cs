@@ -9,8 +9,6 @@ public class PlayerMovement : MonoBehaviour
     public int maxJumpCharges = 2;
     public LayerMask groundLayer;
     public LayerMask platformLayer;
-    public Transform groundCheck;
-    public Vector2 groundCheckSize = new Vector2(0.65f, 0.3f);
     public float dropDownDuration = 0.15f;
 
     [Tooltip("아래 점프 시 초기 하강 속도")]
@@ -277,20 +275,16 @@ public class PlayerMovement : MonoBehaviour
                     * Time.fixedDeltaTime;
         }
 
-        Vector2 checkPos = groundCheck.position;
-        bool falling = rb.linearVelocity.y < -0.5f;
-        float halfW = falling ? groundCheckSize.x * 0.5f : groundCheckSize.x * 0.27f;
-        LayerMask combinedLayer = groundLayer | platformLayer;
-        bool hit =
-            Physics2D.OverlapCircle(checkPos, 0.15f, combinedLayer)
-            || Physics2D.OverlapCircle(checkPos + Vector2.left * halfW, 0.12f, combinedLayer)
-            || Physics2D.OverlapCircle(checkPos + Vector2.right * halfW, 0.12f, combinedLayer);
-        IsGrounded = hit && rb.linearVelocity.y <= 1.0f;
-
-        IsOnPlatform =
-            Physics2D.OverlapCircle(checkPos, 0.15f, platformLayer)
-            || Physics2D.OverlapCircle(checkPos + Vector2.left * halfW, 0.12f, platformLayer)
-            || Physics2D.OverlapCircle(checkPos + Vector2.right * halfW, 0.12f, platformLayer);
+        // 발밑 판정은 몸 콜라이더 폭 전체로 한다. 가운데 좁은 원으로 재면 플랫폼 끝에 섰을 때
+        // 콜라이더는 아직 바닥에 걸쳐 있는데 판정만 빠져 점프(공중) 동작이 나온다.
+        // 폭은 콜라이더보다 살짝 좁게 잡아 옆 벽을 바닥으로 오인하지 않게 한다.
+        Bounds body = mainCollider.bounds;
+        Vector2 footCenter = new Vector2(body.center.x, body.min.y - 0.05f);
+        Vector2 footSize = new Vector2(body.size.x - 0.04f, 0.1f);
+        IsGrounded =
+            Physics2D.OverlapBox(footCenter, footSize, 0f, groundLayer | platformLayer)
+            && rb.linearVelocity.y <= 1.0f;
+        IsOnPlatform = Physics2D.OverlapBox(footCenter, footSize, 0f, platformLayer);
 
         // 통과 중에는 접지로 보지 않는다. OverlapCircle은 IgnoreCollision을 무시하기 때문에
         // 그대로 두면 점프 횟수가 계속 회복되고 애니메이터가 착지 상태로 남는다.
