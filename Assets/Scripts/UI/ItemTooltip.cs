@@ -58,12 +58,39 @@ public class ItemTooltip : MonoBehaviour
             Instance = null;
     }
 
+    /// <summary>
+    /// 툴팁 정렬 순서. 상점·강화창(100)과 데미지 팝업(200)보다 위,
+    /// 피격 화면 효과(999)보다 아래.
+    /// </summary>
+    const int SortingOrder = 300;
+
     void InitRefs()
     {
         _rt = (rootPanel != null ? rootPanel.transform : transform) as RectTransform;
-        _canvas = GetComponentInParent<Canvas>();
+
+        // 아래에서 자기 자신에 정렬용 Canvas 를 붙이므로, 부모에서부터 찾아야
+        // 커서 위치 계산과 화면 밖 보정이 그 Canvas 기준으로 틀어지지 않는다.
+        var parent = transform.parent;
+        _canvas = parent != null ? parent.GetComponentInParent<Canvas>() : GetComponentInParent<Canvas>();
         if (_canvas != null)
             _canvasRT = _canvas.transform as RectTransform;
+
+        EnsureTopMost();
+    }
+
+    /// <summary>
+    /// 툴팁에 자체 Canvas 를 붙여 항상 패널 위에 그린다.
+    /// 상점 패널이 overrideSorting 으로 100 을 쓰기 때문에,
+    /// 계층 순서만으로는 툴팁이 패널 뒤에 가려진다.
+    /// </summary>
+    void EnsureTopMost()
+    {
+        var target = _rt != null ? _rt.gameObject : gameObject;
+        var canvas = target.GetComponent<Canvas>();
+        if (canvas == null)
+            canvas = target.AddComponent<Canvas>();
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = SortingOrder;
     }
 
     /// <summary>씬에 인스턴스가 없으면 캔버스를 찾아 코드로 툴팁 GameObject를 만들고 반환.</summary>
