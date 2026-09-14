@@ -79,7 +79,6 @@ public partial class BossController : BossBase
     private AudioClip dashSound;
 
     private bool isPhase2;
-    private bool attackFlip;
 
     [Header("UI")]
     [SerializeField]
@@ -192,8 +191,10 @@ public partial class BossController : BossBase
         float dx = player.position.x - transform.position.x;
         if (Mathf.Abs(dx) < 0.3f)
             return;
-        bool flip = dx > 0f;
-        sr.flipX = attackFlip ? !flip : flip;
+
+        // 스프라이트 원본은 오른쪽을 본다 — 플레이어가 왼쪽일 때만 뒤집는다.
+        // (EnemyUtils.FlipToPlayer 와 같은 규칙)
+        sr.flipX = dx < 0f;
 
         // flipX는 콜라이더에 영향이 없으므로 히트박스 오프셋을 직접 미러링
         if (meleeHitbox != null)

@@ -346,7 +346,6 @@ public partial class BossController
     {
         await TellShake();
 
-        attackFlip = true;
         FlipToPlayer();
         AudioManager.Instance?.PlaySFX(comboSound);
         PlayState("Combo", true);
@@ -363,8 +362,6 @@ public partial class BossController
             if (i < comboHitCount - 1)
                 await UniTask.Delay(System.TimeSpan.FromSeconds(comboInterval), cancellationToken: token);
         }
-
-        attackFlip = false;
 
         // 클립 잔여 시간만큼 후딜 (타격이 클립 밖으로 밀려나지 않도록)
         float used = swingLead + comboInterval * (comboHitCount - 1);
