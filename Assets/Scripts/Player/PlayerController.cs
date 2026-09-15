@@ -56,9 +56,16 @@ public class PlayerController : MonoBehaviour
             animator.SetBool(HashIsDead, true);
             if (!deathHandled)
             {
-                deathHandled = true;
-                rb.linearVelocity = Vector2.zero;
-                rb.bodyType = RigidbodyType2D.Kinematic;
+                // 죽는 즉시 Kinematic 으로 굳히면 공중에서 죽었을 때 누운 채로 떠 있는다.
+                // 입력만 끊고 중력으로 떨어뜨린 뒤, 바닥에 닿으면 그때 물리를 정지시킨다.
+                movement.StopForDeath();
+
+                if (movement.IsGrounded)
+                {
+                    deathHandled = true;
+                    rb.linearVelocity = Vector2.zero;
+                    rb.bodyType = RigidbodyType2D.Kinematic;
+                }
             }
             return;
         }

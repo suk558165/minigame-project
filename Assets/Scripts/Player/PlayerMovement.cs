@@ -242,6 +242,24 @@ public class PlayerMovement : MonoBehaviour
             Sr.flipX = flipLeft;
     }
 
+    /// <summary>
+    /// 사망 시 입력·대시를 끊고 중력을 되돌린다.
+    /// 대시 중에는 gravityScale 이 0이라 그대로 두면 시체가 공중에 뜬 채 옆으로 흘러간다.
+    /// </summary>
+    public void StopForDeath()
+    {
+        MoveInput = 0f;
+
+        if (IsDashing)
+        {
+            IsDashing = false;
+            LastDashEndTime = Time.time;
+            dashGhost?.StopGhost();
+        }
+
+        rb.gravityScale = gravityScale;
+    }
+
     public void ApplyKnockback(Vector2 velocity)
     {
         knockbackVelocity = velocity;
