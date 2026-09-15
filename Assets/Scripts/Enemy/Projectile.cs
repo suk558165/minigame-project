@@ -22,6 +22,7 @@ public class Projectile : MonoBehaviour
     private float spinSpeed;
     private Transform homingTarget;
     private float homingTurnSpeed;
+    private Collider2D homingCollider;
     private System.Collections.Generic.HashSet<int> hitIds = new();
     private Rigidbody2D rb;
     private SpriteRenderer sr;
@@ -66,33 +67,60 @@ public class Projectile : MonoBehaviour
         this.homingTarget = null;
         this.homingTurnSpeed = 0f;
         rb.linearVelocity = direction.normalized * speed;
+        homingCollider = null;
+        ApplyFacing(direction.normalized);
+        Invoke(nameof(Activate), 0.05f);
+        Invoke(nameof(ReleaseSelf), lifetime);
+    }
+
+    /// <summary>진행 방향에 맞춰 스프라이트를 세운다.</summary>
+    void ApplyFacing(Vector2 direction)
+    {
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle - spriteAngleOffset);
         // 회전만 하면 반대쪽으로 날아갈 때 그림이 위아래로 뒤집힌다(해골·불꽃 등). 세로 반전으로 바로 세운다.
         if (sr != null)
             sr.flipY = Mathf.Abs(Mathf.DeltaAngle(0f, angle - spriteAngleOffset)) > 90f;
-        Invoke(nameof(Activate), 0.05f);
-        Invoke(nameof(ReleaseSelf), lifetime);
     }
 
+    /// <param name="turnSpeed">선회 속도(라디안/초). 3 이면 초당 약 172도.</param>
     public void SetHoming(Transform target, float turnSpeed)
     {
         homingTarget = target;
         homingTurnSpeed = turnSpeed;
+        // 플레이어 기준점은 발밑이라 그대로 쫓으면 바닥으로 파고든다. 몸 중앙을 노린다.
+        homingCollider = target != null ? target.GetComponentInChildren<Collider2D>() : null;
     }
+
+    Vector2 HomingPoint =>
+        homingCollider != null ? (Vector2)homingCollider.bounds.center : (Vector2)homingTarget.position;
 
     void Update()
     {
         if (spinSpeed != 0f)
             transform.Rotate(0f, 0f, spinSpeed * Time.deltaTime);
 
-        if (homingTarget != null && rb.linearVelocity.sqrMagnitude > 0.01f)
-        {
-            Vector2 toTarget = ((Vector2)homingTarget.position - rb.position).normalized;
-            Vector2 cur = rb.linearVelocity.normalized;
-            Vector2 newDir = Vector2.Lerp(cur, toTarget, homingTurnSpeed * Time.deltaTime).normalized;
-            rb.linearVelocity = newDir * rb.linearVelocity.magnitude;
-        }
+        if (homingTarget == null || rb.linearVelocity.sqrMagnitude <= 0.01f)
+            return;
+
+        Vector2 toTarget = HomingPoint - rb.position;
+        if (toTarget.sqrMagnitude < 0.0001f)
+            return;
+
+        // Lerp 는 목표가 정반대일 때 두 벡터가 상쇄돼 속도가 0이 되고, 각도차가 줄수록
+        // 선회가 느려져 빗나간 채 흘러간다. 일정한 각속도로 돌려야 자연스럽게 따라붙는다.
+        Vector2 cur = rb.linearVelocity.normalized;
+        Vector2 newDir = Vector3.RotateTowards(
+            cur,
+            toTarget.normalized,
+            homingTurnSpeed * Time.deltaTime,
+            0f
+        );
+
+        rb.linearVelocity = newDir * rb.linearVelocity.magnitude;
+        // 방향이 바뀌었으면 그림도 같이 돌려야 한다(안 그러면 옆으로 게걸음 치듯 날아간다).
+        if (spinSpeed == 0f)
+            ApplyFacing(newDir);
     }
 
     void Activate() => ready = true;
