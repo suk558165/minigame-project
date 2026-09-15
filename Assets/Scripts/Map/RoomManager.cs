@@ -175,13 +175,26 @@ public class RoomManager : MonoBehaviour
 
     GameObject GetRoomPrefab(RoomType type)
     {
-        return type switch
+        switch (type)
         {
-            RoomType.Shop => shopRoomPrefab,
-            RoomType.MiniBoss => miniBossRoomPrefab,
-            RoomType.Boss => bossRoomPrefab,
-            _ => normalRoomPrefabs[PickNormalRoomIndex()],
-        };
+            case RoomType.Shop:
+                return shopRoomPrefab;
+            case RoomType.MiniBoss:
+                return miniBossRoomPrefab;
+            case RoomType.Boss:
+                return bossRoomPrefab;
+            default:
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                // 개발자 메뉴로 특정 일반 방을 지정했으면 셔플 순서를 건너뛴다(1회성).
+                if (devForcedNormalIndex >= 0 && devForcedNormalIndex < normalRoomPrefabs.Length)
+                {
+                    var forced = normalRoomPrefabs[devForcedNormalIndex];
+                    devForcedNormalIndex = -1;
+                    return forced;
+                }
+#endif
+                return normalRoomPrefabs[PickNormalRoomIndex()];
+        }
     }
 
     void LoadRoom(int roomNumber)
@@ -293,6 +306,30 @@ public class RoomManager : MonoBehaviour
         if (hit.collider != null)
             chest.transform.position += new Vector3(0f, hit.point.y - col.bounds.min.y, 0f);
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private int devForcedNormalIndex = -1;
+
+    /// <summary>개발자 메뉴용: 일반 방 프리팹 목록(인스펙터 배열 순서).</summary>
+    public GameObject[] DevNormalRoomPrefabs => normalRoomPrefabs;
+
+    /// <summary>
+    /// 개발자 메뉴용: 지정한 방 번호로 즉시 이동한다.
+    /// normalIndex >= 0 이면 일반 방 프리팹을 직접 지정한다.
+    /// </summary>
+    public void DevWarpTo(int roomNumber, int normalIndex = -1)
+    {
+        if (normalRoomOrder == null || normalRoomOrder.Count == 0)
+            ShuffleNormalRooms();
+
+        devForcedNormalIndex = normalIndex;
+
+        _masterCts?.Cancel();
+        _masterCts?.Dispose();
+        _masterCts = new CancellationTokenSource();
+        LoadRoomWithFade(roomNumber, false, _masterCts.Token).Forget();
+    }
+#endif
 
     public void GoToNextRoom()
     {

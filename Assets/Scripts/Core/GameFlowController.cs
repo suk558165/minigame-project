@@ -385,6 +385,84 @@ public class GameFlowController : MonoBehaviour
             await ScreenFader.Instance.FadeIn();
     }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    public RoomManager DevRoomManager => roomManager;
+
+    /// <summary>개발자 메뉴용: 타이틀/튜토리얼/마을을 정리하고 플레이어가 살아있는 런 상태로 맞춘다.</summary>
+    public void DevPrepareRun()
+    {
+        TimeScaleLock.ReleaseAll();
+        ClosePauseMenu();
+        GameOverUI.Instance?.ResetUI();
+        GameClearUI.Instance?.ResetUI();
+
+        DestroyTitle();
+
+        if (tutorialInstance != null)
+        {
+            Destroy(tutorialInstance);
+            tutorialInstance = null;
+        }
+
+        if (playerInstance == null)
+            SpawnPlayer();
+        else
+            playerInstance.GetComponent<PlayerController>()?.Revive();
+
+        roomManager.SetPlayer(playerInstance.transform);
+    }
+
+    /// <summary>개발자 메뉴용: 어디서든 던전의 지정 방으로 즉시 진입한다.</summary>
+    public void DevWarpToRoom(int roomNumber, int normalIndex = -1)
+    {
+        DevPrepareRun();
+
+        if (villageInstance != null)
+        {
+            Destroy(villageInstance);
+            villageInstance = null;
+        }
+
+        RunStats.Instance?.StartRun();
+        MetaUpgrades.BeginRun();
+        roomManager.DevWarpTo(roomNumber, normalIndex);
+    }
+
+    /// <summary>개발자 메뉴용: 마을로 즉시 이동한다.</summary>
+    public void DevWarpToVillage()
+    {
+        DevPrepareRun();
+        roomManager.ResetDungeon();
+        roomManager.SetPlayer(playerInstance.transform);
+        BossHealthBarUI.Instance?.Hide();
+        GoToVillage();
+        ScreenFader.Instance?.FadeIn();
+    }
+
+    /// <summary>개발자 메뉴용: 튜토리얼 방으로 즉시 이동한다.</summary>
+    public void DevWarpToTutorial()
+    {
+        if (tutorialRoomPrefab == null)
+        {
+            Debug.LogWarning("[DevMenu] tutorialRoomPrefab 이 비어 있어 튜토리얼로 이동할 수 없다.");
+            return;
+        }
+
+        DevPrepareRun();
+        roomManager.ResetDungeon();
+        roomManager.SetPlayer(playerInstance.transform);
+
+        if (villageInstance != null)
+        {
+            Destroy(villageInstance);
+            villageInstance = null;
+        }
+
+        BossHealthBarUI.Instance?.Hide();
+        GoToTutorial();
+    }
+#endif
+
     public void EnterDungeon()
     {
         if (villageInstance != null)

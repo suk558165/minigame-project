@@ -1,28 +1,7 @@
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
-public class GameManager : MonoBehaviour
-{
-    void Update()
-    {
-#if UNITY_EDITOR
-        // ── 디버그 단축키 (에디터 전용) ──────────────────────
-        // F1 : 현재 방 즉시 클리어 → 다음 방으로 이동
-        if (Input.GetKeyDown(KeyCode.F1))
-        {
-            var rm = RoomManager.Instance;
-            if (rm != null && rm.CurrentRoomNumber > 0)
-            {
-                foreach (var e in EnemyController.Instances.ToArray())
-                    e.TakeDamage(99999f);
-                foreach (var m in MiniBossController.Instances.ToArray())
-                    m.TakeDamage(99999f);
-                foreach (var b in BossController.Instances.ToArray())
-                    b.TakeDamage(99999f);
-            }
-        }
-#endif
-    }
-}
+/// <summary>
+/// 씬에 놓인 빈 관리 오브젝트.
+/// 디버그 단축키는 <see cref="DevMenu"/> 로 옮겼다(F1 개발자 메뉴).
+/// </summary>
+public class GameManager : MonoBehaviour { }
