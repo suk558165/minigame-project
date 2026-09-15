@@ -9990,6 +9990,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Portal
   portalType: 1
   visualEffect: {fileID: 5463554208207643952}
+  spriteBottomPadding: 0.44
 --- !u!61 &5871787409966934642
 BoxCollider2D:
   m_ObjectHideFlags: 0
