@@ -185,6 +185,7 @@ public class GameOverUI : MonoBehaviour
             var dimImg = dimGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.7f);
             dimImg.raycastTarget = false;
+            BookPageLayout.IgnoreLayout(dimGo);
         }
 
         // 책 페이지 배경
@@ -211,9 +212,18 @@ public class GameOverUI : MonoBehaviour
             bgImage.raycastTarget = false;
         }
 
+        BookPageLayout.IgnoreLayout(bgImage.gameObject);
+
         bgImage.sprite = backgroundSprite;
         bgImage.preserveAspect = true;
         bgImage.color = Color.white;
+
+        // 게임오버는 책의 왼쪽 페이지를 쓴다.
+        BookPageLayout.Apply(
+            (RectTransform)transform,
+            backgroundSprite,
+            BookPageLayout.LeftPage
+        );
     }
 
     void PopulateStats()

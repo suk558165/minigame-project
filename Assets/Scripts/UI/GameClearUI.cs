@@ -149,6 +149,7 @@ public class GameClearUI : MonoBehaviour
             var dimImg = dimGo.AddComponent<Image>();
             dimImg.color = new Color(0f, 0f, 0f, 0.7f);
             dimImg.raycastTarget = false;
+            BookPageLayout.IgnoreLayout(dimGo);
         }
 
         var bgTransform = transform.Find("BG");
@@ -174,9 +175,18 @@ public class GameClearUI : MonoBehaviour
             bgImage.raycastTarget = false;
         }
 
+        BookPageLayout.IgnoreLayout(bgImage.gameObject);
+
         bgImage.sprite = backgroundSprite;
         bgImage.preserveAspect = true;
         bgImage.color = Color.white;
+
+        // 게임클리어는 책의 오른쪽 페이지를 쓴다.
+        BookPageLayout.Apply(
+            (RectTransform)transform,
+            backgroundSprite,
+            BookPageLayout.RightPage
+        );
     }
 
     void Update()
