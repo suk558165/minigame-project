@@ -82,6 +82,10 @@ public class ItemTooltip : MonoBehaviour
     /// 툴팁에 자체 Canvas 를 붙여 항상 패널 위에 그린다.
     /// 상점 패널이 overrideSorting 으로 100 을 쓰기 때문에,
     /// 계층 순서만으로는 툴팁이 패널 뒤에 가려진다.
+    ///
+    /// Unity 는 오브젝트가 비활성이거나 아직 부모 Canvas 밑에 들어가기 전(=루트 Canvas)이면
+    /// overrideSorting 을 무시한다. 생성 시점에는 두 조건에 모두 걸리므로
+    /// 반드시 Show() 에서 활성화한 뒤 다시 걸어야 한다.
     /// </summary>
     void EnsureTopMost()
     {
@@ -298,6 +302,9 @@ public class ItemTooltip : MonoBehaviour
         var target = rootPanel != null ? rootPanel : gameObject;
         target.SetActive(true);
         _isShown = true;
+
+        // 활성화된 뒤에 정렬을 다시 건다. 생성 시점 호출은 Unity 가 무시한다(EnsureTopMost 주석 참고).
+        EnsureTopMost();
 
         // 텍스트 갱신 후 즉시 레이아웃을 재계산해 첫 프레임 크기 깜빡임 방지
         if (_rt != null)

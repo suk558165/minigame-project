@@ -80,25 +80,31 @@ public partial class EnemyController
             meleeHitbox.enabled = false;
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Kinematic;
+
+        // 콜라이더를 끄기 전에 몸 중앙을 기억해 둔다(끄면 bounds 가 무효가 된다).
+        // 비행 몬스터는 transform 원점이 발밑 기준이라 그대로 쓰면
+        // 골드가 몹이 아니라 그 아래 허공에서 튀어나온다.
+        Vector3 dropPos = col != null && col.enabled ? col.bounds.center : transform.position;
+
         if (col != null)
             col.enabled = false;
         onDeath?.Invoke();
         onDeath = null;
         RunStats.Instance?.AddKill();
-        SpawnDrops();
+        SpawnDrops(dropPos);
         animator.ResetTrigger(HashIsHit);
         animator.ResetTrigger(HashAttack);
         animator.SetBool(HashIsDead, true);
         DeathRoutine(token).Forget();
     }
 
-    void SpawnDrops()
+    void SpawnDrops(Vector3 dropPos)
     {
-        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, 1, goldDropMin, goldDropMax);
+        EnemyUtils.SpawnGoldDrops(goldDropPrefab, dropPos, 1, goldDropMin, goldDropMax);
 
         if (potionDropPrefab != null && Random.value < potionDropChance + MetaUpgrades.PotionDropBonus)
         {
-            Vector3 pos = transform.position + Vector3.up * 0.3f;
+            Vector3 pos = dropPos + Vector3.up * 0.3f;
             var potion = Instantiate(potionDropPrefab, pos, Quaternion.identity);
             var worldPotion = potion.GetComponent<WorldPotion>();
             if (worldPotion != null)

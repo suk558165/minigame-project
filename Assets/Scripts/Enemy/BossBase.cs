@@ -215,12 +215,17 @@ public abstract class BossBase : MonoBehaviour, IDamageable
             meleeHitbox.enabled = false;
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Kinematic;
+
+        // 콜라이더를 끄면 bounds 가 무효가 되므로 미리 몸 중앙을 잡아둔다.
+        // 공중에 뜬 보스는 transform 원점이 발밑이라 골드가 아래 허공에서 나온다.
+        Vector3 dropPos = col != null && col.enabled ? col.bounds.center : transform.position;
+
         if (col != null)
             col.enabled = false;
         onDeath?.Invoke();
         onDeath = null;
         RunStats.Instance?.AddKill();
-        EnemyUtils.SpawnGoldDrops(goldDropPrefab, transform.position, GoldDropCount, goldDropMin, goldDropMax);
+        EnemyUtils.SpawnGoldDrops(goldDropPrefab, dropPos, GoldDropCount, goldDropMin, goldDropMax);
         DeathRoutine(token).Forget();
     }
 
@@ -230,6 +235,12 @@ public abstract class BossBase : MonoBehaviour, IDamageable
     async UniTaskVoid DeathRoutine(CancellationToken token)
     {
         await EnemyUtils.DeathBlink(sr);
+
+        // DeathBlink 는 토큰을 받지 않아 방이 통째로 지워져도 끝까지 돌아간다.
+        // 그 사이 이 오브젝트가 이미 파괴됐으면 gameObject 접근이 예외를 던진다.
+        if (token.IsCancellationRequested || this == null)
+            return;
+
         Destroy(gameObject);
     }
 }
